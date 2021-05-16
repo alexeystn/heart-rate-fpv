@@ -27,6 +27,7 @@ static rmt_item32_t ppmArray[] = {
   {{{ PPM_PULSE, 1, PPM_DEFAULT, 0 }}},
   {{{ PPM_PULSE, 1, PPM_DEFAULT, 0 }}},
   {{{ PPM_PULSE, 1, PPM_DEFAULT, 0 }}},
+  {{{ PPM_PULSE, 1, PPM_DEFAULT, 0 }}}, // 9th pulse to terminate 8 ch
 };
 
 #define PPM_CHANNEL_COUNT  (sizeof(ppmArray)/sizeof(ppmArray[0]))
@@ -54,7 +55,7 @@ void RMT_setup() {
 
 #define LED_PIN  2
 
-void RMT_loop(void * parameter) {
+void RMT_loop(void) {
   uint8_t hr;
   while (1) {
     portENTER_CRITICAL(&mux);
@@ -64,18 +65,18 @@ void RMT_loop(void * parameter) {
     //map(value, fromLow, fromHigh, toLow, toHigh)
     int pulse_size = map(hr, 0, 200, PPM_MIN, PPM_MAX);
     pulse_size = constrain(pulse_size, PPM_MIN, PPM_MAX) - PPM_PULSE;
-
+    
     for (int i = 0; i < PPM_CHANNEL_COUNT; i++) {
       ppmArray[i].duration1 = pulse_size;
     }
     
     rmt_write_items(RMT_TX_CHANNEL, ppmArray, PPM_CHANNEL_COUNT, true);
-    vTaskDelay(100 / portTICK_PERIOD_MS);
+    vTaskDelay(50 / portTICK_PERIOD_MS);
   }
 }
 
 
-void LED_setup() {
+void LED_setup(void) {
   pinMode(LED_PIN, OUTPUT);
 }
 
@@ -87,7 +88,7 @@ void blink(int onTimeMs, int offTimeMs) {
 }
 
 
-void LED_loop(void * param) {
+void LED_loop(void) {
   uint8_t status = 0;
   while (1) {
     portENTER_CRITICAL(&mux);
@@ -99,7 +100,7 @@ void LED_loop(void * param) {
     portEXIT_CRITICAL(&mux);
 
     if (status) {
-      blink(50, 1000);
+      blink(50, 1500);
     } else {
       blink(50, 150);
     }
@@ -229,7 +230,7 @@ class MyAdvertisedDeviceCallbacks: public BLEAdvertisedDeviceCallbacks {
 }; // MyAdvertisedDeviceCallbacks
 
 
-void BLE_setup() {
+void BLE_setup(void) {
   Serial.begin(115200);
   Serial.println("Starting Arduino BLE Client application...");
   BLEDevice::init("");
@@ -247,7 +248,7 @@ void BLE_setup() {
 
 
 // This is the Arduino main loop function.
-void BLE_loop(void * p) {
+void BLE_loop(void) {
   while(1) {
   // If the flag "doConnect" is true then we have scanned for and found the desired
   // BLE Server with which we wish to connect.  Now we connect to it.  Once we are 
@@ -278,16 +279,26 @@ void BLE_loop(void * p) {
 } // End of loop
 
 
-void setup() {
+void BLE_task(void * p){
   BLE_setup();
+  BLE_loop();
+}
+
+void RMT_task(void * p){
   RMT_setup();
+  RMT_loop();
+}
+
+void LED_task(void * p){
   LED_setup();
-  
+  LED_loop();
+}
+
+void setup() {
   vPortCPUInitializeMutex(&mux);
-  
-  xTaskCreate( &BLE_loop, "Bluetooth", 100000, NULL, 1, &bleTaskHandle );
-  xTaskCreate( &RMT_loop, "Pulses",    10000,  NULL, 2, &rmtTaskHandle );
-  xTaskCreate( &LED_loop, "Blink",     1000,   NULL, 3, &ledTaskHandle );
+  xTaskCreate( &BLE_task, "Bluetooth", 100000, NULL, 1, &bleTaskHandle );
+  xTaskCreate( &RMT_task, "Pulses",    10000,  NULL, 2, &rmtTaskHandle );
+  xTaskCreate( &LED_task, "Blink",     1000,   NULL, 3, &ledTaskHandle );
 } 
 
 void loop() {
