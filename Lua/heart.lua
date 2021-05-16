@@ -50,7 +50,7 @@ local function bpmToY(bpm)
 end
 
 local function cntToPnt(i)
-  local res = statsPointer + i + 1
+  local res = statsPointer + i - 1
   if res > statsSize then
     return (res - statsSize)
   else
