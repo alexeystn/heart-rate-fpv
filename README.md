@@ -25,7 +25,7 @@ Demo flights video:
 ### 1. HR Monitor
 Get any available chest strap heart rate monitor with Bluetooth.<br>
 Chest strap monitors are recommended.<br>
-They are widely used by athlets, because they provide higher precision, not affected by body movenents. Although, you may use wrist-strap monitor.
+They are widely used by athletes, because they provide higher precision, not affected by body movements. Although, you may use wrist-strap monitor.
 
 ### 2. ESP32
 Upload [firmware](ESP32/ESP32_BLE_HRM_Client) to ESP32 board. [How to install ESP32 in Arduino IDE](https://randomnerdtutorials.com/installing-the-esp32-board-in-arduino-ide-windows-instructions/)
@@ -36,7 +36,7 @@ Wire up ESP32 module to your Radio transmitter as depicted below:
 <p align="center">
 <img src="Images/connection_diagram.png" width="400" />
 </p>
-You can use external 5V source (such as powerbank) or connect it to available 5V transmitter outputs (e.g. pins in JR module bay, Radiomaster TX16S bottom connector, etc.).
+You can use external 5V source (such as power-bank) or connect it to available 5V transmitter outputs (e.g. pins in JR module bay, Radiomaster TX16S bottom connector, etc.).
 
 Trainer port uses 3.5mm 3-pin jack connector.
 
@@ -78,7 +78,7 @@ Only 128x64 displays are supported so far.
 
 ### 4. Betaflight
 
-1) Flash your FC with the modified version of Betafligh 4.2.9 with additional OSD element. ([Source code](https://github.com/alexeystn/betaflight/tree/alexeystn_heartrate))
+1) Flash your FC with the modified version of Betaflight 4.2.9 with additional OSD element. ([Source code](https://github.com/alexeystn/betaflight/tree/alexeystn_heartrate))
 
 <p align="center">
 <img src="Images/betaflight_flash.png" width="700" />
@@ -97,7 +97,7 @@ Only 128x64 displays are supported so far.
 
 2) Restore all your previous Betaflight settings.
 
-3) Upload you favourite [font](/Fonts) with additional heart symbol in `Font Manager` on OSD tab.
+3) Upload you favourite [font](/Fonts/mcm) with additional heart symbol in `Font Manager` on OSD tab.
 
 4) Enable new element on OSD. It is displayed as `Unknown` in configurator now.
 
