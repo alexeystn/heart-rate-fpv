@@ -1,6 +1,10 @@
 #include "BLEDevice.h"
 #include "driver/rmt.h"
 
+// Enter MAC address of your Heart Rate Monitor here:
+//#define BLE_HRM_MAC_ADDRESS "f6:c7:39:de:70:fd"
+// Enable this line to connect to a specified HRM.
+// Disable if you want to connect to any available HRM.
 
 static uint8_t heartrate = 0;
 
@@ -218,7 +222,12 @@ class MyAdvertisedDeviceCallbacks: public BLEAdvertisedDeviceCallbacks {
     // We have found a device, let us now see if it contains the service we are looking for.
     if (advertisedDevice.haveServiceUUID() && advertisedDevice.isAdvertisingService(serviceUUID)) {
 
-      // TODO: check address
+#ifdef BLE_HRM_MAC_ADDRESS
+      if (!(advertisedDevice.getAddress().toString() == BLE_HRM_MAC_ADDRESS)) {
+        Serial.println("Incorrect MAC address");
+        return;
+      }
+#endif
 
       BLEDevice::getScan()->stop();
       myDevice = new BLEAdvertisedDevice(advertisedDevice);
@@ -243,7 +252,7 @@ void BLE_setup(void) {
   pBLEScan->setInterval(1349);
   pBLEScan->setWindow(449);
   pBLEScan->setActiveScan(true);
-  pBLEScan->start(5, false);
+  pBLEScan->start(3600, false); // scan for 1 hour
 } // End of setup.
 
 
