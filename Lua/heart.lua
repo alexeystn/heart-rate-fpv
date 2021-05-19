@@ -105,11 +105,17 @@ local function drawDisplay()
   end
 end
 
-local function run_func(event) 
-  local newHeartRate = 0
-  if (event == EVT_ROT_RIGHT) or (event == EVT_ROT_LEFT) then
+local function run_func(event)   
+  if (event == EVT_ROT_RIGHT) or (event == EVT_ROT_LEFT) or 
+   (event == EVT_PLUS_BREAK) or (event == EVT_MINUS_BREAK) then
     showGraph = not showGraph
   end
+  drawDisplay()
+  return 0
+end
+
+local function bg_func()
+  local newHeartRate = 0
   currentTime = getTime()
   newHeartRate = math.floor( ((getValue('trn1') + 1000 ) * 200 ) / 2000)
   if currentTime > nextHRUpdateTime then
@@ -117,8 +123,7 @@ local function run_func(event)
     nextHRUpdateTime = currentTime + 100
   end
   putToAvgBuffer(heartRate)
-  drawDisplay()
   return 0
 end
 
-return { init=init_func, run=run_func }
+return { run=run_func, background=bg_func, init=init_func }
