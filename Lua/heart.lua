@@ -3,12 +3,16 @@ local nextHRUpdateTime = 0
 local nextStatsUpdateTime = 0
 local currentTime = 0
 
+local armSwitch = 'sd'
+
+local arms = {}
 local stats = {}
 local statsPointer = 1
-statsSize = 128 - 17 - 2
+local statsSize = 128 - 17 - 2
 
 local function putToStats(bpm)
   stats[statsPointer] = bpm
+  arms[statsPointer] = getValue(armSwitch) > 0
   if statsPointer < #stats then
     statsPointer = statsPointer + 1
   else
@@ -42,11 +46,12 @@ end
 local function init_func()
   for i = 1,statsSize do
     stats[i] = 0
+    arms[i] = false
   end
 end
 
 local function bpmToY(bpm)
-  return 64 - 7 - (bpm - 60) * 4 / 5
+  return 64 - (bpm - 60) * 3 / 5 - 4
 end
 
 local function cntToPnt(i)
@@ -80,10 +85,10 @@ local function drawDisplay()
       blinkCounter = 0
     end    
   else -- Graph
-    for bpm = 60,120,10 do
+    for bpm = 50,150,10 do
       lcd.drawLine(17, bpmToY(bpm), 17+statsSize, bpmToY(bpm), DOTTED, FORCE)
     end
-    for bpm=60,120,20 do
+    for bpm=60,140,20 do
       if (bpm < 100) then x = 6 else x = 1 end
       lcd.drawText(x, bpmToY(bpm) - 3, tostring(bpm), SMALLSIZE)
     end
@@ -93,13 +98,17 @@ local function drawDisplay()
       y1 = bpmToY(stats[cntToPnt(i)])
       y2 = bpmToY(stats[cntToPnt(i+1)])
       lcd.drawLine(x1, y1, x2, y2, SOLID, FORCE)
+      if arms[cntToPnt(i)] then
+        lcd.drawLine(x2, 0, x2, 1, SOLID, FORCE)
+      end
     end
     for i = 2,(statsSize*avgInterval/60+1) do
-      x = 17 + statsSize - (i-1)*(60/avgInterval) + 1
-      lcd.drawLine(x, 2, x, 63, DOTTED, FORCE)
-      for bpm = 60,120,20 do
+      x = 17 + statsSize - (i-1)*(60/avgInterval)
+      lcd.drawLine(x, 1, x, 63, DOTTED, FORCE)
+      for bpm = 60,140,20 do
         y = bpmToY(bpm)
         lcd.drawLine(x-1, y, x+1, y, SOLID, FORCE)
+        lcd.drawLine(x, y-1, x, y+1, SOLID, FORCE)
       end
     end
   end
