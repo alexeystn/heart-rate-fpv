@@ -23,7 +23,7 @@ Demo flights video:
 </p>
 
 ### 1. HR Monitor
-Get any available chest strap heart rate monitor with Bluetooth.<br>
+Get any available chest strap heart rate monitor with Bluetooth (for example, Kalenji ZT26D, Magene H64).<br>
 Chest strap monitors are recommended.<br>
 They are widely used by athletes, because they provide higher precision, not affected by body movements. Although, you may use wrist-strap monitor.
 
