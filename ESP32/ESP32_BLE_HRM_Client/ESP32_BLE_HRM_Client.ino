@@ -3,10 +3,15 @@
 
 // Enter MAC address of your Heart Rate Monitor here:
 //#define BLE_HRM_MAC_ADDRESS "f6:c7:39:de:70:fd"
+//#define BLE_HRM_MAC_ADDRESS "ee:ac:dd:9d:79:bb"
 // Enable this line to connect to a specified HRM.
 // Disable if you want to connect to any available HRM.
 
-static uint8_t heartrate = 0;
+static uint8_t heartRate = 0;
+static uint32_t lastGoodMeasurementTime = 0;
+static boolean connected = false;
+
+#define CONTACT_LOST_TIMEOUT_MS   5000
 
 TaskHandle_t rmtTaskHandle = NULL;
 TaskHandle_t bleTaskHandle = NULL;
@@ -63,7 +68,7 @@ void RMT_loop(void) {
   uint8_t hr;
   while (1) {
     portENTER_CRITICAL(&mux);
-    hr = heartrate;
+    hr = heartRate;
     portEXIT_CRITICAL(&mux);    
 
     //map(value, fromLow, fromHigh, toLow, toHigh)
@@ -92,21 +97,33 @@ void blink(int onTimeMs, int offTimeMs) {
 }
 
 
+enum status_t {Disconnected = 0, ContactLost = 1, ContactOk = 2}; 
+
 void LED_loop(void) {
-  uint8_t status = 0;
+  enum status_t status;
   while (1) {
     portENTER_CRITICAL(&mux);
-    if (heartrate > 0) {
-      status = 1;
+    if (connected) {
+      if (heartRate > 0) {
+        status = ContactOk;
+      } else {
+        status = ContactLost;
+      }      
     } else {
-      status = 0;
+      status = Disconnected;
     }
     portEXIT_CRITICAL(&mux);
 
-    if (status) {
-      blink(50, 1500);
-    } else {
-      blink(50, 150);
+    switch (status) {
+      case Disconnected:
+        blink(50, 150);
+        break;
+      case ContactOk:
+        blink(50, 1500);
+        break;
+      case ContactLost:
+        blink(500, 500);
+        break;
     }
   }
 }
@@ -123,24 +140,32 @@ static  BLEUUID serviceUUID(BLEUUID((uint16_t)0x180D));
 static  BLEUUID    charUUID(BLEUUID((uint16_t)0x2A37));
 
 static boolean doConnect = false;
-static boolean connected = false;
 static boolean doScan = false;
 static BLERemoteCharacteristic* pRemoteCharacteristic;
 static BLEAdvertisedDevice* myDevice;
-
 
 static void notifyCallback(
   BLERemoteCharacteristic* pBLERemoteCharacteristic,
   uint8_t* pData,
   size_t length,
   bool isNotify) {
+    // refer to specification:
+    // https://www.bluetooth.com/wp-content/uploads/Sitecore-Media-Library/Gatt/Xml/Characteristics/org.bluetooth.characteristic.heart_rate_measurement.xml
+    if (pData[0] & 0x02) {
+      lastGoodMeasurementTime = millis();
+    }
     portENTER_CRITICAL(&mux);
-    heartrate = pData[1];
+    if ((millis() - lastGoodMeasurementTime) > CONTACT_LOST_TIMEOUT_MS) {
+      heartRate = 0;
+    } else {
+      heartRate = pData[1];
+    }
     portEXIT_CRITICAL(&mux);
     Serial.print("Notify callback for characteristic ");
     Serial.print(pBLERemoteCharacteristic->getUUID().toString().c_str());
     Serial.print(" of data length ");
     Serial.println(length);
+    Serial.printf("%6d  ", millis());
     Serial.print("data: ");
     for (uint8_t i = 0; i < length; i++) {
       Serial.printf("%5d ", pData[i]);
@@ -156,7 +181,7 @@ class MyClientCallback : public BLEClientCallbacks {
     connected = false;
     Serial.println("onDisconnect");
     portENTER_CRITICAL(&mux);
-    heartrate = 0;
+    heartRate = 0;
     portEXIT_CRITICAL(&mux);
   }
 };
