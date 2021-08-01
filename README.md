@@ -78,7 +78,7 @@ Only 128x64 displays are supported so far.
 
 ### 4. Betaflight
 
-1) Flash your FC with the modified version of Betaflight 4.2.9 with additional OSD element. ([Source code](https://github.com/alexeystn/betaflight/tree/alexeystn_heartrate))
+1) Flash your FC with the modified version of Betaflight 4.2.9 or 4.3.0 with additional OSD element. (Source code [1](https://github.com/alexeystn/betaflight/tree/alexeystn_heartrate), [2](https://github.com/alexeystn/betaflight/tree/osd_aux_channel))<br>
 
 <p align="center">
 <img src="Images/betaflight_flash.png" width="700" />
@@ -105,9 +105,15 @@ Only 128x64 displays are supported so far.
 <img src="Images/betaflight_osd.png" width="500" />
 </p>
 
-5) Go to CLI and enter the following: 
+5) Go to CLI and enter the following for BF 4.2.9:
 ```
 set osd_heart_rate_channel = 8
+save
+```
+and for BF 4.3.0:
+```
+set osd_aux_channel = 8
+set osd_aux_symbol = 121
 save
 ```
 
