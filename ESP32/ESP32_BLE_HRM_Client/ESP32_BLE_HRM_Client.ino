@@ -1,11 +1,12 @@
 #include "BLEDevice.h"
 #include "driver/rmt.h"
 
-// Enter MAC address of your Heart Rate Monitor here:
-//#define BLE_HRM_MAC_ADDRESS "f6:c7:39:de:70:fd"
-//#define BLE_HRM_MAC_ADDRESS "ee:ac:dd:9d:79:bb"
-// Enable this line to connect to a specified HRM.
-// Disable if you want to connect to any available HRM.
+#define BLE_HRM_MAC_ADDRESS "f6:c7:39:de:70:fd"
+// Enter MAC address of your Heart Rate Monitor here.
+// You can find MAC address in the fitness app in your phone, 
+// or in Serial Monitor in Arduino IDE after uploading this sketch.
+// Comment out this line if you want to connect to any available 
+// Heart Rate Monitor around you (not recommended)
 
 static uint8_t heartRate = 0;
 static uint32_t lastGoodMeasurementTime = 0;
