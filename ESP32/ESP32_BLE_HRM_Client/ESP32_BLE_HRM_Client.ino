@@ -29,15 +29,15 @@ portMUX_TYPE mux;
 
 
 static rmt_item32_t ppmArray[] = {
-  {{{ PPM_PULSE, 1, PPM_DEFAULT, 0 }}},
-  {{{ PPM_PULSE, 1, PPM_DEFAULT, 0 }}},
-  {{{ PPM_PULSE, 1, PPM_DEFAULT, 0 }}},
-  {{{ PPM_PULSE, 1, PPM_DEFAULT, 0 }}},
-  {{{ PPM_PULSE, 1, PPM_DEFAULT, 0 }}},
-  {{{ PPM_PULSE, 1, PPM_DEFAULT, 0 }}},
-  {{{ PPM_PULSE, 1, PPM_DEFAULT, 0 }}},
-  {{{ PPM_PULSE, 1, PPM_DEFAULT, 0 }}},
-  {{{ PPM_PULSE, 1, PPM_DEFAULT, 0 }}}, // 9th pulse to terminate 8 ch
+  {{{ PPM_PULSE, 1, PPM_MIN - PPM_PULSE, 0 }}},
+  {{{ PPM_PULSE, 1, PPM_MIN - PPM_PULSE, 0 }}},
+  {{{ PPM_PULSE, 1, PPM_MIN - PPM_PULSE, 0 }}},
+  {{{ PPM_PULSE, 1, PPM_MIN - PPM_PULSE, 0 }}},
+  {{{ PPM_PULSE, 1, PPM_MIN - PPM_PULSE, 0 }}},
+  {{{ PPM_PULSE, 1, PPM_MIN - PPM_PULSE, 0 }}},
+  {{{ PPM_PULSE, 1, PPM_MIN - PPM_PULSE, 0 }}},
+  {{{ PPM_PULSE, 1, PPM_MIN - PPM_PULSE, 0 }}},
+  {{{ PPM_PULSE, 1, PPM_MIN - PPM_PULSE, 0 }}}, // 9th pulse to terminate 8 ch
 };
 
 #define PPM_CHANNEL_COUNT  (sizeof(ppmArray)/sizeof(ppmArray[0]))
@@ -75,10 +75,7 @@ void RMT_loop(void) {
     //map(value, fromLow, fromHigh, toLow, toHigh)
     int pulse_size = map(hr, 0, 200, PPM_MIN, PPM_MAX);
     pulse_size = constrain(pulse_size, PPM_MIN, PPM_MAX) - PPM_PULSE;
-    
-    for (int i = 0; i < PPM_CHANNEL_COUNT; i++) {
-      ppmArray[i].duration1 = pulse_size;
-    }
+    ppmArray[0].duration1 = pulse_size;
     
     rmt_write_items(RMT_TX_CHANNEL, ppmArray, PPM_CHANNEL_COUNT, true);
     vTaskDelay(50 / portTICK_PERIOD_MS);
