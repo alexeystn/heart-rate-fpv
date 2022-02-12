@@ -78,13 +78,13 @@ Only 128x64 displays are supported so far.
 
 ### 4. Betaflight
 
-1) Flash your FC with the modified version of Betaflight 4.2.9 or 4.3.0 with additional OSD element. (Source code [1](https://github.com/alexeystn/betaflight/tree/alexeystn_heartrate), [2](https://github.com/alexeystn/betaflight/tree/osd_aux_channel))<br>
+1) Flash your FC with the modified version of Betaflight 4.2.9 or 4.3.0 with additional OSD element. (Source code [1](https://github.com/alexeystn/betaflight/tree/alexeystn_heartrate), [2](https://github.com/alexeystn/betaflight))<br>
 
 <p align="center">
 <img src="Images/betaflight_flash.png" width="700" />
 </p>
 
-* Download [HEX firmware](/Betaflight) for your target chip. There are HEX files for unified targets (F405, F722), so you need to apply defaults for your particular FC later. 
+* Download HEX firmware [4.2.9](/Betaflight) or [4.3.0](https://github.com/alexeystn/betaflight) for your target chip. There are HEX files for unified targets (F405, F722), so you need to apply defaults for your particular FC later. 
 * Open Betaflight configurator, `Firmware Flasher` tab.
 * Select your board name in the list (OMNIBUSF4SD, MATEKF405, FOXEERF722V2 etc.)
 * Press `Load firmware [Local]` and select downloaded HEX-file (filename)
@@ -105,15 +105,9 @@ Only 128x64 displays are supported so far.
 <img src="Images/betaflight_osd.png" width="500" />
 </p>
 
-5) Go to CLI and enter the following for BF 4.2.9:
+5) Go to CLI and enter the following:
 ```
 set osd_heart_rate_channel = 8
-save
-```
-and for BF 4.3.0:
-```
-set osd_aux_channel = 8
-set osd_aux_symbol = 121
 save
 ```
 
