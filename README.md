@@ -27,11 +27,51 @@ Get any available chest strap heart rate monitor with Bluetooth (for example, Ka
 Chest strap monitors are recommended.<br>
 They are widely used by athletes, because they provide higher precision, not affected by body movements. Although, you may use wrist-strap monitor.
 
-### 2. ESP32
-Upload [firmware](ESP32/ESP32_BLE_HRM_Client) to ESP32 board. [How to install ESP32 in Arduino IDE](https://randomnerdtutorials.com/installing-the-esp32-board-in-arduino-ide-windows-instructions/)
+### 2. ESP32 Firmware
 
-Put on your heart rate monitor and open `Serial Monitor` in Arduino IDE to check if the firmware works correctly and ESP32 module discovers your HR monitor.<br>
+1. Upload [firmware](ESP32/ESP32_BLE_HRM_Client) to ESP32 board. ([How to install ESP32 in Arduino IDE](https://randomnerdtutorials.com/installing-the-esp32-board-in-arduino-ide-windows-instructions/))
 
+2. Find out MAC address of your HR-monitor:
+
+Put on the HR-monitor.<br>
+Open "Tools -> Serial Monitor" in Arduino IDE.<br>
+Now you can see continuously refreshing list of all available Bluetooth devices around you:
+
+```
+...
+BLE Advertised Device found: Name: MI_SCALE, Address: 13:a6:c8:0f:1b:d7, manufacturer data: 580f10ac61b701d7
+BLE Advertised Device found: Name: , Address: 50:fe:76:ce:35:ea, manufacturer data: 4c0010054a1c7f72c3
+BLE Advertised Device found: Name: Mi Smart Band 4, Address: c2:0d:36:02:8c:31, manufacturer data: 578c110102f3602
+BLE Advertised Device found: Name: , Address: 72:89:7b:87:fe:dd, manufacturer data: 4c0010054a1c7f72c3
+BLE Advertised Device found: Name: Decathlon Dual HR, Address: f6:de:70:c7:39:fd, appearance: 833, serviceUUID: 0000180d-0000-1000-8000-00805f9b34fb
+...
+```
+
+Find the line corresponding to your device.<br>
+For example, there is my "Decathlon Dual HR" monitor with `f6:de:70:c7:39:fd` address in the list above.<br>
+
+3. Replace the address in .ino-file with the address of real device:
+
+` #define BLE_HRM_MAC_ADDRESS "01:23:45:67:89:ab"`
+
+4. Flash ESP32 again.<br>
+Open "Serial Monitor".<br>
+When ESP board establishes connection with HR-monitor you can see:
+
+```
+Forming a connection to f6:de:70:c7:39:fd
+ - Created client
+ - Connected to server
+ - Found our service
+ - Found our characteristic
+We are now connected to the BLE Server.
+ ...
+```
+
+Now ESP32 board is bound to HR-monitor.
+
+
+### 3. Hardware
 Wire up ESP32 module to your Radio transmitter as depicted below:
 <p align="center">
 <img src="Images/connection_diagram.png" width="400" />
@@ -47,7 +87,7 @@ Here is an example, how I did it for my Taranis Q X7 board:
 <img src="Images/taranis_qx7.jpg" width="250" />
 </p>
 
-### 3. OpenTX
+### 4. OpenTX
 1. Configure Trainer port as `Master/Jack`. Go to `Trainer` page to make sure if some variable signal is coming (bottom line).
 
 <p align="center">
@@ -76,7 +116,7 @@ Now you are able to watch current heart rate and the latest statistics plot on t
 Switch between them with a scroll wheel.<br>
 Only 128x64 displays are supported so far.
 
-### 4. Betaflight
+### 5. Betaflight
 
 1) Flash your FC with the modified version of Betaflight 4.2.9 or 4.3.0 with additional OSD element. (Source code [1](https://github.com/alexeystn/betaflight/tree/alexeystn_heartrate), [2](https://github.com/alexeystn/betaflight))<br>
 
