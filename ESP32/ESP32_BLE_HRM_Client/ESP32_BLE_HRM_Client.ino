@@ -1,7 +1,7 @@
 #include "BLEDevice.h"
 #include "driver/rmt.h"
 
-#define BLE_HRM_MAC_ADDRESS "f6:c7:39:de:70:fd"
+#define BLE_HRM_MAC_ADDRESS "01:23:45:67:89:ab"
 // Enter MAC address of your Heart Rate Monitor here.
 // You can find MAC address in the fitness app in your phone, 
 // or in Serial Monitor in Arduino IDE after uploading this sketch.
@@ -247,7 +247,7 @@ class MyAdvertisedDeviceCallbacks: public BLEAdvertisedDeviceCallbacks {
 
 #ifdef BLE_HRM_MAC_ADDRESS
       if (!(advertisedDevice.getAddress().toString() == BLE_HRM_MAC_ADDRESS)) {
-        Serial.println("Incorrect MAC address");
+        Serial.println("Heart rate monitor available!");
         return;
       }
 #endif
