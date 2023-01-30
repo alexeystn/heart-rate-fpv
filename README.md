@@ -118,36 +118,16 @@ Only 128x64 displays are supported so far.
 
 ### 5. Betaflight
 
-1) Flash your FC with the modified version of Betaflight 4.2.9 or 4.3.0 with additional OSD element. (Source code [1](https://github.com/alexeystn/betaflight/tree/alexeystn_heartrate), [2](https://github.com/alexeystn/betaflight))<br>
+1) Flash your FC with Betaflight 4.4.
 
-<p align="center">
-<img src="Images/betaflight_flash.png" width="700" />
-</p>
+2) Upload you favourite [font](/Fonts/mcm) with additional heart symbol in `Font Manager` on OSD tab.
 
-* Download HEX firmware [4.2.9](/Betaflight) or [4.3.0](https://github.com/alexeystn/betaflight) for your target chip. There are HEX files for unified targets (F405, F722), so you need to apply defaults for your particular FC later. 
-* Open Betaflight configurator, `Firmware Flasher` tab.
-* Select your board name in the list (OMNIBUSF4SD, MATEKF405, FOXEERF722V2 etc.)
-* Press `Load firmware [Local]` and select downloaded HEX-file (filename)
-* Press `Flash Firmware` and wait until it is done.
-* When FC is flashed, press `Connect`. You will see a following window. Press `Apply custom defaults`.
+3) Enable `Aux value` element on OSD tab in configurator.
 
-<p align="center">
-<img src="Images/betaflight_apply.png" width="500" />
-<p>
-
-2) Restore all your previous Betaflight settings.
-
-3) Upload you favourite [font](/Fonts/mcm) with additional heart symbol in `Font Manager` on OSD tab.
-
-4) Enable new element on OSD. It is displayed as `Unknown` in configurator now.
-
-<p align="center">
-<img src="Images/betaflight_osd.png" width="500" />
-</p>
-
-5) Go to CLI and enter the following:
+4) Go to CLI and enter the following:
 ```
-set osd_heart_rate_channel = 8
+set osd_aux_symbol = 121
+set osd_aux_channel = 8
 save
 ```
 
@@ -160,7 +140,6 @@ Done!
 ### Future plans
 * Tests with many different HRM models.
 * Lua scripts for bigger screens (212x64, 480x272).
-* PR to official Betaflight repository.
 
 
 Feel free to contact me in Telegram: [@AlexeyStn](https://t.me/AlexeyStn)
