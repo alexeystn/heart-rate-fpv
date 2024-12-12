@@ -1,7 +1,16 @@
 #include "BLEDevice.h"
-#include "driver/rmt.h"
+//#include "driver/rmt.h"
+#include <FastLED.h>
 
-#define BLE_HRM_MAC_ADDRESS "01:23:45:67:89:ab"
+#define LED_PIN     10
+#define NUM_LEDS    2
+#define LED_TYPE    WS2812
+
+CRGB leds[NUM_LEDS];
+
+uint8_t keyPressed = 0;
+
+#define BLE_HRM_MAC_ADDRESS "f6:c7:39:de:70:fd"
 // Enter MAC address of your Heart Rate Monitor here.
 // You can find MAC address in the fitness app in your phone, 
 // or in Serial Monitor in Arduino IDE after uploading this sketch.
@@ -14,84 +23,55 @@ static boolean connected = false;
 
 #define CONTACT_LOST_TIMEOUT_MS   5000
 
-TaskHandle_t rmtTaskHandle = NULL;
+TaskHandle_t outTaskHandle = NULL;
 TaskHandle_t bleTaskHandle = NULL;
 TaskHandle_t ledTaskHandle = NULL;
+TaskHandle_t keyTaskHandle = NULL;
 portMUX_TYPE mux;
 
-#define RMT_TX_CHANNEL   RMT_CHANNEL_0
-#define RMT_TX_GPIO      13
 
-#define PPM_PULSE    300
-#define PPM_DEFAULT  1500
-#define PPM_MIN      1000
-#define PPM_MAX      2000
-
-
-static rmt_item32_t ppmArray[] = {
-  {{{ PPM_PULSE, 1, PPM_MIN - PPM_PULSE, 0 }}},
-  {{{ PPM_PULSE, 1, PPM_MIN - PPM_PULSE, 0 }}},
-  {{{ PPM_PULSE, 1, PPM_MIN - PPM_PULSE, 0 }}},
-  {{{ PPM_PULSE, 1, PPM_MIN - PPM_PULSE, 0 }}},
-  {{{ PPM_PULSE, 1, PPM_MIN - PPM_PULSE, 0 }}},
-  {{{ PPM_PULSE, 1, PPM_MIN - PPM_PULSE, 0 }}},
-  {{{ PPM_PULSE, 1, PPM_MIN - PPM_PULSE, 0 }}},
-  {{{ PPM_PULSE, 1, PPM_MIN - PPM_PULSE, 0 }}},
-  {{{ PPM_PULSE, 1, PPM_MIN - PPM_PULSE, 0 }}}, // 9th pulse to terminate 8 ch
-};
-
-#define PPM_CHANNEL_COUNT  (sizeof(ppmArray)/sizeof(ppmArray[0]))
-
-void RMT_setup() {
-  rmt_config_t config;
-
-  config.rmt_mode = RMT_MODE_TX;
-  config.channel = RMT_TX_CHANNEL;
-  config.gpio_num = (gpio_num_t)RMT_TX_GPIO;
-  config.clk_div = 80;
-  config.mem_block_num = 1;
-  config.tx_config.carrier_freq_hz = 0;
-  config.tx_config.carrier_level = RMT_CARRIER_LEVEL_HIGH;
-  config.tx_config.idle_level = RMT_IDLE_LEVEL_LOW;
-  config.tx_config.carrier_duty_percent = 50;
-  config.tx_config.carrier_en = false;
-  config.tx_config.loop_en = false;
-  config.tx_config.idle_output_en = true;
-
-  rmt_config(&config);
-  rmt_driver_install(config.channel, 0, 0);
-
+void OUT_setup() {
+  Serial1.begin(115200, SERIAL_8N1, 20, 21);
 }
 
-#define LED_PIN  2
+//#define LED_PIN  2
 
-void RMT_loop(void) {
+void OUT_loop(void) {
   uint8_t hr;
   while (1) {
     portENTER_CRITICAL(&mux);
     hr = heartRate;
     portEXIT_CRITICAL(&mux);    
-
-    //map(value, fromLow, fromHigh, toLow, toHigh)
-    int pulse_size = map(hr, 0, 200, PPM_MIN, PPM_MAX);
-    pulse_size = constrain(pulse_size, PPM_MIN, PPM_MAX) - PPM_PULSE;
-    ppmArray[0].duration1 = pulse_size;
-    
-    rmt_write_items(RMT_TX_CHANNEL, ppmArray, PPM_CHANNEL_COUNT, true);
-    vTaskDelay(50 / portTICK_PERIOD_MS);
+    Serial1.write(hr);
+    vTaskDelay(500 / portTICK_PERIOD_MS);
   }
 }
 
 
 void LED_setup(void) {
-  pinMode(LED_PIN, OUTPUT);
+  FastLED.addLeds<LED_TYPE, LED_PIN>(leds, NUM_LEDS);
+  FastLED.setBrightness(40);
 }
 
-void blink(int onTimeMs, int offTimeMs) {
-  digitalWrite(LED_PIN, 1);
-  vTaskDelay(onTimeMs / portTICK_PERIOD_MS);
-  digitalWrite(LED_PIN, 0);
-  vTaskDelay(offTimeMs / portTICK_PERIOD_MS);
+
+void blink(int enabled) {
+  if (enabled) {
+    leds[0] = CRGB::Blue;
+    FastLED.show();
+    vTaskDelay(100 / portTICK_PERIOD_MS);
+  } else {
+    if (digitalRead(9)) {
+      leds[0] = CRGB::Red;
+    } else {
+      leds[0] = CRGB::Yellow;
+    }
+    
+    FastLED.show();
+    vTaskDelay(100 / portTICK_PERIOD_MS);
+    leds[0] = CRGB::Black;
+    FastLED.show();
+    vTaskDelay(200 / portTICK_PERIOD_MS); 
+  }
 }
 
 
@@ -114,13 +94,13 @@ void LED_loop(void) {
 
     switch (status) {
       case Disconnected:
-        blink(50, 150);
+        blink(0);
         break;
       case ContactOk:
-        blink(50, 1500);
+        blink(1);
         break;
       case ContactLost:
-        blink(500, 500);
+        blink(0);
         break;
     }
   }
@@ -220,9 +200,9 @@ bool connectToServer() {
 
     // Read the value of the characteristic.
     if(pRemoteCharacteristic->canRead()) {
-      std::string value = pRemoteCharacteristic->readValue();
+      //std::string value = ;
       Serial.print("The characteristic value was: ");
-      Serial.println(value.c_str());
+      Serial.println(pRemoteCharacteristic->readValue());
     }
 
     if(pRemoteCharacteristic->canNotify())
@@ -244,16 +224,10 @@ class MyAdvertisedDeviceCallbacks: public BLEAdvertisedDeviceCallbacks {
 
     // We have found a device, let us now see if it contains the service we are looking for.
     if (advertisedDevice.haveServiceUUID() && advertisedDevice.isAdvertisingService(serviceUUID)) {
-
-#ifdef BLE_HRM_MAC_ADDRESS
-      if (!(advertisedDevice.getAddress().toString() == BLE_HRM_MAC_ADDRESS)) {
-        Serial.println("Heart rate monitor available!");
-        return;
-      }
-#endif
-
-      BLEDevice::getScan()->stop();
+      Serial.print("Heart rate monitor available!");
+      Serial.println(advertisedDevice.getAddress().toString());
       myDevice = new BLEAdvertisedDevice(advertisedDevice);
+      BLEDevice::getScan()->stop();
       doConnect = true;
       doScan = true;
 
@@ -285,7 +259,10 @@ void BLE_loop(void) {
   // If the flag "doConnect" is true then we have scanned for and found the desired
   // BLE Server with which we wish to connect.  Now we connect to it.  Once we are 
   // connected we set the connected flag to be true.
-  if (doConnect == true) {
+  if (doConnect == true) { // (keyPressed) {// 
+    Serial.println("doConnect = true");
+    doScan = true;
+
     if (connectToServer()) {
       Serial.println("We are now connected to the BLE Server.");
     } else {
@@ -297,11 +274,11 @@ void BLE_loop(void) {
   // If we are connected to a peer BLE Server, update the characteristic each time we are reached
   // with the current time since boot.
   if (connected) {
-    String newValue = "Time since boot: " + String(millis()/1000);
-    Serial.println("Setting new characteristic value to \"" + newValue + "\"");
+    //String newValue = "Time since boot: " + String(millis()/1000);
+    //Serial.println("Setting new characteristic value to \"" + newValue + "\"");
     
     // Set the characteristic's value to be the array of bytes that is actually a string.
-    pRemoteCharacteristic->writeValue(newValue.c_str(), newValue.length());
+    //pRemoteCharacteristic->writeValue(newValue.c_str(), newValue.length());
   }else if(doScan){
     BLEDevice::getScan()->start(0);  // this is just example to start scan after disconnect, most likely there is better way to do it in arduino
   }
@@ -316,9 +293,9 @@ void BLE_task(void * p){
   BLE_loop();
 }
 
-void RMT_task(void * p){
-  RMT_setup();
-  RMT_loop();
+void OUT_task(void * p){
+  OUT_setup();
+  OUT_loop();
 }
 
 void LED_task(void * p){
@@ -326,11 +303,28 @@ void LED_task(void * p){
   LED_loop();
 }
 
+void KEY_task(void * p){
+  pinMode(9, INPUT_PULLUP);
+  while (1) {
+    if (digitalRead(9) == 0) {
+      keyPressed = 1;
+    } else {
+      keyPressed = 0;
+    }
+    vTaskDelay(50 / portTICK_PERIOD_MS);
+  }
+}
+
+
+
+
+
 void setup() {
-  vPortCPUInitializeMutex(&mux);
+  portMUX_INITIALIZE(&mux);
   xTaskCreate( &BLE_task, "Bluetooth", 100000, NULL, 1, &bleTaskHandle );
-  xTaskCreate( &RMT_task, "Pulses",    10000,  NULL, 2, &rmtTaskHandle );
-  xTaskCreate( &LED_task, "Blink",     1000,   NULL, 3, &ledTaskHandle );
+  xTaskCreate( &OUT_task, "Pulses",    10000,  NULL, 2, &outTaskHandle );
+  xTaskCreate( &LED_task, "Blink",     10000,   NULL, 3, &ledTaskHandle );
+  xTaskCreate( &KEY_task, "Key",     1000,   NULL, 4, &keyTaskHandle );
 } 
 
 void loop() {
