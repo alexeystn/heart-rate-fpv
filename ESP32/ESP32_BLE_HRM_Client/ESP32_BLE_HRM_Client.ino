@@ -8,7 +8,9 @@
 
 CRGB leds[NUM_LEDS];
 
-uint8_t keyPressed = 0;
+boolean wasConnected = false;
+boolean keyPressedFlag = 0;
+uint8_t connectCommandFlag = 0;
 
 #define BLE_HRM_MAC_ADDRESS "f6:c7:39:de:70:fd"
 // Enter MAC address of your Heart Rate Monitor here.
@@ -30,6 +32,12 @@ TaskHandle_t keyTaskHandle = NULL;
 portMUX_TYPE mux;
 
 
+enum state_t {ST_IDLE = 0, ST_AVAILABLE = 1, ST_CONNECTED = 2}; 
+
+
+state_t state = ST_IDLE;
+
+
 void OUT_setup() {
   Serial1.begin(115200, SERIAL_8N1, 20, 21);
 }
@@ -48,59 +56,64 @@ void OUT_loop(void) {
 }
 
 
+void KEY_setup(void) {
+  pinMode(9, INPUT_PULLUP);
+  vTaskDelay(1000 / portTICK_PERIOD_MS);
+}
+
+
+void KEY_loop(void) {
+  uint8_t k;
+  uint8_t previousState = 1;
+  uint8_t currentState = 0;
+  while (1) {
+
+    previousState = currentState;
+    currentState = digitalRead(9);
+    if ((previousState == 1) && (currentState == 0)) {
+      keyPressedFlag = 1;
+    }
+    vTaskDelay(50 / portTICK_PERIOD_MS);
+
+
+    if (keyPressedFlag && (state == ST_AVAILABLE)) {
+      BLEDevice::getScan()->stop();
+      Serial.println("Bind key pressed");
+      connectCommandFlag = 1;
+    }
+  }
+}
+
+
 void LED_setup(void) {
   FastLED.addLeds<LED_TYPE, LED_PIN>(leds, NUM_LEDS);
   FastLED.setBrightness(40);
 }
 
 
-void blink(int enabled) {
-  if (enabled) {
-    leds[0] = CRGB::Blue;
-    FastLED.show();
-    vTaskDelay(100 / portTICK_PERIOD_MS);
-  } else {
-    if (digitalRead(9)) {
-      leds[0] = CRGB::Red;
-    } else {
-      leds[0] = CRGB::Yellow;
-    }
-    
-    FastLED.show();
-    vTaskDelay(100 / portTICK_PERIOD_MS);
-    leds[0] = CRGB::Black;
-    FastLED.show();
-    vTaskDelay(200 / portTICK_PERIOD_MS); 
-  }
-}
-
-
-enum status_t {Disconnected = 0, ContactLost = 1, ContactOk = 2}; 
-
 void LED_loop(void) {
-  enum status_t status;
   while (1) {
-    portENTER_CRITICAL(&mux);
-    if (connected) {
-      if (heartRate > 0) {
-        status = ContactOk;
-      } else {
-        status = ContactLost;
-      }      
-    } else {
-      status = Disconnected;
-    }
-    portEXIT_CRITICAL(&mux);
-
-    switch (status) {
-      case Disconnected:
-        blink(0);
+    switch (state) {
+      case ST_IDLE:
+        leds[0] = CRGB::Red;
+        FastLED.show();
+        vTaskDelay(100 / portTICK_PERIOD_MS);
+        leds[0] = CRGB::Black;
+        FastLED.show();
+        vTaskDelay(200 / portTICK_PERIOD_MS); 
         break;
-      case ContactOk:
-        blink(1);
+      case ST_AVAILABLE:
+        leds[0] = CRGB::Yellow;
+        FastLED.show();
+        vTaskDelay(75 / portTICK_PERIOD_MS);
+        leds[0] = CRGB::Black;
+        FastLED.show();
+        vTaskDelay(75 / portTICK_PERIOD_MS); 
         break;
-      case ContactLost:
-        blink(0);
+      case ST_CONNECTED:
+        leds[0] = CRGB::Blue;
+        FastLED.show();
+        vTaskDelay(100 / portTICK_PERIOD_MS);
         break;
     }
   }
@@ -119,16 +132,14 @@ static  BLEUUID    charUUID(BLEUUID((uint16_t)0x2A37));
 
 static boolean doConnect = false;
 static boolean doScan = false;
+static boolean deviceFound = false;
 static BLERemoteCharacteristic* pRemoteCharacteristic;
 static BLEAdvertisedDevice* myDevice;
 
-static void notifyCallback(
-  BLERemoteCharacteristic* pBLERemoteCharacteristic,
-  uint8_t* pData,
-  size_t length,
-  bool isNotify) {
-    // refer to specification:
-    // https://www.bluetooth.com/wp-content/uploads/Sitecore-Media-Library/Gatt/Xml/Characteristics/org.bluetooth.characteristic.heart_rate_measurement.xml
+static void notifyCallback(BLERemoteCharacteristic* pBLERemoteCharacteristic,
+                           uint8_t* pData,
+                           size_t length,
+                           bool isNotify) {
     if (pData[0] & 0x02) {
       lastGoodMeasurementTime = millis();
     }
@@ -139,28 +150,26 @@ static void notifyCallback(
       heartRate = pData[1];
     }
     portEXIT_CRITICAL(&mux);
-    Serial.print("Notify callback for characteristic ");
-    Serial.print(pBLERemoteCharacteristic->getUUID().toString().c_str());
-    Serial.print(" of data length ");
-    Serial.println(length);
-    Serial.printf("%6d  ", millis());
-    Serial.print("data: ");
+    Serial.printf("%7d  ", millis());
+    Serial.printf("Notification %s: ", pBLERemoteCharacteristic->getUUID().toString().c_str());
     for (uint8_t i = 0; i < length; i++) {
-      Serial.printf("%5d ", pData[i]);
+      Serial.printf("%3d ", pData[i]);
     }
     Serial.println();
 }
 
 class MyClientCallback : public BLEClientCallbacks {
   void onConnect(BLEClient* pclient) {
+    Serial.println("'onConnect' callback");
   }
 
   void onDisconnect(BLEClient* pclient) {
-    connected = false;
-    Serial.println("onDisconnect");
-    portENTER_CRITICAL(&mux);
-    heartRate = 0;
-    portEXIT_CRITICAL(&mux);
+    Serial.println("'onDisconnect' callback");
+    state = ST_IDLE;
+    //connected = false;
+    //portENTER_CRITICAL(&mux);
+    //heartRate = 0;
+    //portEXIT_CRITICAL(&mux);
   }
 };
 
@@ -168,124 +177,145 @@ bool connectToServer() {
     Serial.print("Forming a connection to ");
     Serial.println(myDevice->getAddress().toString().c_str());
     
-    BLEClient*  pClient  = BLEDevice::createClient();
-    Serial.println(" - Created client");
+    BLEClient* pClient = BLEDevice::createClient();
+    Serial.println("Created client");
 
     pClient->setClientCallbacks(new MyClientCallback());
+    pClient->connect(myDevice);
+    Serial.println("Connected to server");
 
-    // Connect to the remove BLE Server.
-    pClient->connect(myDevice);  // if you pass BLEAdvertisedDevice instead of address, it will be recognized type of peer device address (public or private)
-    Serial.println(" - Connected to server");
-
-    // Obtain a reference to the service we are after in the remote BLE server.
     BLERemoteService* pRemoteService = pClient->getService(serviceUUID);
     if (pRemoteService == nullptr) {
-      Serial.print("Failed to find our service UUID: ");
+      Serial.println("Failed to find service");
       Serial.println(serviceUUID.toString().c_str());
       pClient->disconnect();
       return false;
     }
-    Serial.println(" - Found our service");
+    Serial.println("Service found");
 
-
-    // Obtain a reference to the characteristic in the service of the remote BLE server.
     pRemoteCharacteristic = pRemoteService->getCharacteristic(charUUID);
     if (pRemoteCharacteristic == nullptr) {
-      Serial.print("Failed to find our characteristic UUID: ");
-      Serial.println(charUUID.toString().c_str());
+      Serial.println("Failed to find characteristic");
       pClient->disconnect();
       return false;
     }
-    Serial.println(" - Found our characteristic");
+    Serial.println("Characteristic found");
 
-    // Read the value of the characteristic.
     if(pRemoteCharacteristic->canRead()) {
-      //std::string value = ;
-      Serial.print("The characteristic value was: ");
+      Serial.print("The characteristic value: ");
       Serial.println(pRemoteCharacteristic->readValue());
     }
 
     if(pRemoteCharacteristic->canNotify())
       pRemoteCharacteristic->registerForNotify(notifyCallback);
 
-    connected = true;
+    //connected = true;
+    state = ST_CONNECTED;
     return true;
 }
-/**
- * Scan for BLE servers and find the first one that advertises the service we are looking for.
- */
+
+
 class MyAdvertisedDeviceCallbacks: public BLEAdvertisedDeviceCallbacks {
- /**
-   * Called for each advertising BLE server.
-   */
+ // Called for each advertising BLE server
   void onResult(BLEAdvertisedDevice advertisedDevice) {
     Serial.print("BLE Advertised Device found: ");
     Serial.println(advertisedDevice.toString().c_str());
 
-    // We have found a device, let us now see if it contains the service we are looking for.
     if (advertisedDevice.haveServiceUUID() && advertisedDevice.isAdvertisingService(serviceUUID)) {
-      Serial.print("Heart rate monitor available!");
-      Serial.println(advertisedDevice.getAddress().toString());
-      myDevice = new BLEAdvertisedDevice(advertisedDevice);
-      BLEDevice::getScan()->stop();
-      doConnect = true;
-      doScan = true;
 
-    } // Found our server
-  } // onResult
-}; // MyAdvertisedDeviceCallbacks
+      Serial.print("Heart rate monitor available");
+      Serial.println(advertisedDevice.getAddress().toString());
+      if (myDevice != NULL) {
+        delete myDevice;
+      }
+      myDevice = new BLEAdvertisedDevice(advertisedDevice);
+      //deviceFound = true;
+      state = ST_AVAILABLE;
+
+      // check MAC address here !!
+      // if MAC==OK: stop scanning
+
+      wasConnected = true;
+      
+
+    }
+  }
+};
 
 
 void BLE_setup(void) {
   Serial.begin(115200);
   Serial.println("Starting Arduino BLE Client application...");
+  // TODO: load address from EEPROM
   BLEDevice::init("");
-
-  // Retrieve a Scanner and set the callback we want to use to be informed when we
-  // have detected a new device.  Specify that we want active scanning and start the
-  // scan to run for 5 seconds.
   BLEScan* pBLEScan = BLEDevice::getScan();
   pBLEScan->setAdvertisedDeviceCallbacks(new MyAdvertisedDeviceCallbacks());
   pBLEScan->setInterval(1349);
   pBLEScan->setWindow(449);
   pBLEScan->setActiveScan(true);
-  pBLEScan->start(3600, false); // scan for 1 hour
-} // End of setup.
+  pBLEScan->start(0, false);
+}
 
 
-// This is the Arduino main loop function.
+
 void BLE_loop(void) {
+
+  Serial.println("Enter BLE loop");
   while(1) {
-  // If the flag "doConnect" is true then we have scanned for and found the desired
-  // BLE Server with which we wish to connect.  Now we connect to it.  Once we are 
-  // connected we set the connected flag to be true.
-  if (doConnect == true) { // (keyPressed) {// 
-    Serial.println("doConnect = true");
-    doScan = true;
-
-    if (connectToServer()) {
-      Serial.println("We are now connected to the BLE Server.");
-    } else {
-      Serial.println("We have failed to connect to the server; there is nothin more we will do.");
-    }
-    doConnect = false;
-  }
-
-  // If we are connected to a peer BLE Server, update the characteristic each time we are reached
-  // with the current time since boot.
-  if (connected) {
-    //String newValue = "Time since boot: " + String(millis()/1000);
-    //Serial.println("Setting new characteristic value to \"" + newValue + "\"");
-    
-    // Set the characteristic's value to be the array of bytes that is actually a string.
-    //pRemoteCharacteristic->writeValue(newValue.c_str(), newValue.length());
-  }else if(doScan){
-    BLEDevice::getScan()->start(0);  // this is just example to start scan after disconnect, most likely there is better way to do it in arduino
-  }
+    Serial.println("Loop");
   
-  vTaskDelay(3000 / portTICK_PERIOD_MS);; // Delay a second between loops.
+    if (keyPressedFlag) {
+      keyPressedFlag = 0;
+      if (state == ST_AVAILABLE) {
+        if (connectToServer()) {
+          Serial.println("Connected to the BLE Server");
+          // TODO: save address to EEPROM
+        } else {
+          Serial.println("Failed to connect to the server");
+          state = ST_IDLE;
+        }
+      }      
+    }
+
+    if (state == ST_IDLE) {
+      if (wasConnected) {
+        BLEDevice::getScan()->start(0);
+      }
+    }
+
+    // TODO: repeat scan
+
+
+/*
+    portENTER_CRITICAL(&mux);
+    k = keyPressed;
+    portEXIT_CRITICAL(&mux);
+
+    if (keyPressed) {
+      
+      if (doConnect == true) { // (keyPressed) {//
+        //BLEDevice::getScan()->stop(); 
+        Serial.println("doConnect = true");
+        doScan = true;
+  
+        if (connectToServer()) {
+          Serial.println("Connected to the BLE Server.");
+        } else {
+          Serial.println("Failed to connect to the server.");
+       }
+       doConnect = false;
+     }
+    }
+
+    if (!connected) {
+      if(doScan){
+        BLEDevice::getScan()->start(0);  // this is just example to start scan after disconnect, most likely there is better way to do it in arduino
+      }
+    }*/
+  
+    vTaskDelay(1000 / portTICK_PERIOD_MS);
   }
-} // End of loop
+}
 
 
 void BLE_task(void * p){
@@ -304,18 +334,9 @@ void LED_task(void * p){
 }
 
 void KEY_task(void * p){
-  pinMode(9, INPUT_PULLUP);
-  while (1) {
-    if (digitalRead(9) == 0) {
-      keyPressed = 1;
-    } else {
-      keyPressed = 0;
-    }
-    vTaskDelay(50 / portTICK_PERIOD_MS);
-  }
+  KEY_setup();
+  KEY_loop();
 }
-
-
 
 
 
