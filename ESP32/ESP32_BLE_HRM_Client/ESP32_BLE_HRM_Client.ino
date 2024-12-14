@@ -11,6 +11,12 @@ CRGB leds[NUM_LEDS];
 boolean wasConnected = false;
 boolean keyPressedFlag = 0;
 uint8_t connectCommandFlag = 0;
+boolean foundSavedDevice = false;
+
+esp_bd_addr_t advertisedAddress;
+esp_bd_addr_t savedAddress = {0xf6, 0xc7, 0x39, 0xde, 0x70, 0xfd};
+
+
 
 #define BLE_HRM_MAC_ADDRESS "f6:c7:39:de:70:fd"
 // Enter MAC address of your Heart Rate Monitor here.
@@ -166,10 +172,6 @@ class MyClientCallback : public BLEClientCallbacks {
   void onDisconnect(BLEClient* pclient) {
     Serial.println("'onDisconnect' callback");
     state = ST_IDLE;
-    //connected = false;
-    //portENTER_CRITICAL(&mux);
-    //heartRate = 0;
-    //portEXIT_CRITICAL(&mux);
   }
 };
 
@@ -223,19 +225,30 @@ class MyAdvertisedDeviceCallbacks: public BLEAdvertisedDeviceCallbacks {
 
     if (advertisedDevice.haveServiceUUID() && advertisedDevice.isAdvertisingService(serviceUUID)) {
 
-      Serial.print("Heart rate monitor available");
-      Serial.println(advertisedDevice.getAddress().toString());
+      //Serial.print("Heart rate monitor available");
+      //Serial.println(advertisedDevice.getAddress().toString());
+      
+      //advertisedAddress = &();
+
+      boolean isMACok = false;
+
+      if (memcmp(advertisedDevice.getAddress().getNative(), savedAddress, 6) == 0) {
+        isMACok = true;
+      }
+
+      if (isMACok) {
+        foundSavedDevice = true;
+        BLEDevice::getScan()->stop();
+      }
+
       if (myDevice != NULL) {
         delete myDevice;
       }
-      myDevice = new BLEAdvertisedDevice(advertisedDevice);
-      //deviceFound = true;
+      myDevice = new BLEAdvertisedDevice(advertisedDevice);      
       state = ST_AVAILABLE;
 
-      // check MAC address here !!
-      // if MAC==OK: stop scanning
 
-      wasConnected = true;
+
       
 
     }
@@ -264,11 +277,12 @@ void BLE_loop(void) {
   while(1) {
     Serial.println("Loop");
   
-    if (keyPressedFlag) {
+    if ((keyPressedFlag) || (foundSavedDevice)) {
       keyPressedFlag = 0;
       if (state == ST_AVAILABLE) {
         if (connectToServer()) {
           Serial.println("Connected to the BLE Server");
+          wasConnected = true;
           // TODO: save address to EEPROM
         } else {
           Serial.println("Failed to connect to the server");
@@ -281,41 +295,12 @@ void BLE_loop(void) {
       if (wasConnected) {
         BLEDevice::getScan()->start(0);
       }
-    }
-
-    // TODO: repeat scan
-
-
-/*
-    portENTER_CRITICAL(&mux);
-    k = keyPressed;
-    portEXIT_CRITICAL(&mux);
-
-    if (keyPressed) {
-      
-      if (doConnect == true) { // (keyPressed) {//
-        //BLEDevice::getScan()->stop(); 
-        Serial.println("doConnect = true");
-        doScan = true;
-  
-        if (connectToServer()) {
-          Serial.println("Connected to the BLE Server.");
-        } else {
-          Serial.println("Failed to connect to the server.");
-       }
-       doConnect = false;
-     }
-    }
-
-    if (!connected) {
-      if(doScan){
-        BLEDevice::getScan()->start(0);  // this is just example to start scan after disconnect, most likely there is better way to do it in arduino
-      }
-    }*/
-  
+    }  
     vTaskDelay(1000 / portTICK_PERIOD_MS);
   }
 }
+
+// TODO: no connection in 1 minute: Sleep mode
 
 
 void BLE_task(void * p){
