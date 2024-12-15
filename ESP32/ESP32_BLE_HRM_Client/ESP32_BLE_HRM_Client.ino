@@ -2,17 +2,17 @@
 #include <EEPROM.h>
 #include <FastLED.h>
 
-#define  USE_RGB_LEDS   0     // Zero: 1,  SuperMini: 0
-#define  LED_PIN        8     // Zero: 10, SuperMini: 8
+#define  USE_RGB_LEDS   1     // Zero: 1,  SuperMini: 0
+#define  LED_PIN        10    // Zero: 10, SuperMini: 8
 
-#define  USE_FIXED_MAC_ADDRESS   1   // Set to 0 if you want to bind with a key
-
-#define SLEEP_TIMEOUT 60
+#define  USE_FIXED_MAC_ADDRESS   0   // Set to 0 if you want to bind with a key
 
 #if USE_FIXED_MAX_ADDRESS
 //#define FIXED_MAC_ADDRESS "f6:c7:39:de:70:fd" // decathlon
 #define FIXED_MAC_ADDRESS "f6:ce:f7:41:30:1c" // coospo
 #endif
+
+#define SLEEP_TIMEOUT 60
 
 boolean wasConnected = false;
 boolean foundSavedDevice = false;
@@ -32,9 +32,7 @@ TaskHandle_t ledTaskHandle = NULL;
 TaskHandle_t keyTaskHandle = NULL;
 portMUX_TYPE mux;
 
-
-enum state_t {ST_IDLE = 0, ST_AVAILABLE = 1, ST_CONNECTED = 2};
-
+enum state_t {ST_IDLE = 1, ST_AVAILABLE = 2, ST_CONNECTED = 3};  // 0 is reserved
 
 state_t state = ST_IDLE;
 
@@ -77,10 +75,10 @@ void OUT_loop(void) {
   while (1) {
     switch (state) {
       case ST_IDLE:
-        data = 1;
+        data = ST_IDLE;
         break;
       case ST_AVAILABLE:
-        data = 2;
+        data = ST_AVAILABLE;
         break;
       case ST_CONNECTED:
         data = heartRate;
@@ -147,37 +145,25 @@ void LED_loop(void) {
     switch (state) {
       case ST_IDLE:
         LED_ON(Red);
-        //leds[0] = CRGB::Red;
-        //FastLED.show();
         vTaskDelay(200 / portTICK_PERIOD_MS);
         LED_OFF;
-        //leds[0] = CRGB::Black;
-        //FastLED.show();
         vTaskDelay(200 / portTICK_PERIOD_MS);
         break;
       case ST_AVAILABLE:
         LED_ON(Orange);
-        //leds[0] = CRGB::Orange;
-        //FastLED.show();
         vTaskDelay(50 / portTICK_PERIOD_MS);
-        //leds[0] = CRGB::Black;
-        //FastLED.show();
         LED_OFF;
         vTaskDelay(50 / portTICK_PERIOD_MS);
         break;
       case ST_CONNECTED:
         lastConnectedTime = millis();
         LED_ON(Blue);
-        //leds[0] = CRGB::Blue;
-        //FastLED.show();
         vTaskDelay(100 / portTICK_PERIOD_MS);
         break;
     }
     
     if (millis() > lastConnectedTime + (SLEEP_TIMEOUT)*1000) {
-      //leds[0] = CRGB::Black;
       Serial.println("Enter sleep mode");
-      //FastLED.show();
       LED_OFF;
       esp_deep_sleep_start();
     }

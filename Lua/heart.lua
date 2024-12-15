@@ -3,8 +3,14 @@ local nextHRUpdateTime = 0
 local nextStatsUpdateTime = 0
 local currentTime = 0
 
+local ST_NO_ESP32 = -1
+local ST_IDLE = 1
+local ST_AVAILABLE = 2
+local ST_CONNECTED = 3
+-- 0 is reserved
+
+local status = ST_NO_ESP32
 local lastSerialRxTime = 0
-local status = -1
 
 local armSwitch = 'sd'
 
@@ -75,11 +81,11 @@ local function drawDisplay()
   if showGraph then -- Single number
     lcd.drawFilledRectangle(0, 0, LCD_W, 10)
     
-    if status == -1 then 
+    if status == ST_NO_ESP32 then 
       lcd.drawText(10, 1, "ESP32 not connected", INVERS)
-    elseif status == 1 then
+    elseif status == ST_IDLE then
       lcd.drawText(19, 1, "Sensor not found", INVERS)
-    elseif status == 2 then
+    elseif status == ST_AVAILABLE then
       lcd.drawText(22, 1, "Sensor available", INVERS)
     else
       lcd.drawText(34, 1, "Heart rate", INVERS)
@@ -150,7 +156,7 @@ local function bg_func()
         status = value
         heartRate = 0
       else
-        status = 3
+        status = ST_CONNECTED
         heartRate = value
       end
       lastSerialRxTime = getTime()
@@ -161,13 +167,8 @@ local function bg_func()
     status = -1
     heartRate = 0
   end
-  
+  model.setGlobalVariable(0, 0, heartRate-100)
 
-  --newHeartRate = math.floor( ((getValue('trn1') + 1000 ) * 200 ) / 2000)
-  --if currentTime > nextHRUpdateTime then
-  --  heartRate = newHeartRate
-  --  nextHRUpdateTime = currentTime + 100
-  --end
   putToAvgBuffer(heartRate)
   return 0
 end
