@@ -2,29 +2,23 @@
 #include <EEPROM.h>
 #include <FastLED.h>
 
+#define  USE_RGB_LEDS   0     // Zero: 1,  SuperMini: 0
+#define  LED_PIN        8     // Zero: 10, SuperMini: 8
 
-#define LED_PIN     10
-#define NUM_LEDS    2
-#define LED_TYPE    WS2812
+#define  USE_FIXED_MAC_ADDRESS   1   // Set to 0 if you want to bind with a key
 
-CRGB leds[NUM_LEDS];
+#define SLEEP_TIMEOUT 60
+
+#if USE_FIXED_MAX_ADDRESS
+//#define FIXED_MAC_ADDRESS "f6:c7:39:de:70:fd" // decathlon
+#define FIXED_MAC_ADDRESS "f6:ce:f7:41:30:1c" // coospo
+#endif
 
 boolean wasConnected = false;
-boolean keyPressedFlag = 0;
-uint8_t connectCommandFlag = 0;
 boolean foundSavedDevice = false;
 
 esp_bd_addr_t advertisedAddress;
-esp_bd_addr_t savedAddress;// = {0xf6, 0xc7, 0x39, 0xde, 0x70, 0xfd};
-
-
-
-#define BLE_HRM_MAC_ADDRESS "f6:c7:39:de:70:fd"
-// Enter MAC address of your Heart Rate Monitor here.
-// You can find MAC address in the fitness app in your phone,
-// or in Serial Monitor in Arduino IDE after uploading this sketch.
-// Comment out this line if you want to connect to any available
-// Heart Rate Monitor around you (not recommended)
+esp_bd_addr_t savedAddress;
 
 static uint8_t heartRate = 0;
 static uint32_t lastGoodMeasurementTime = 0;
@@ -58,7 +52,6 @@ void EEPROM_Load(void) {
   for (int i = 0; i < 6; i++) {
     savedAddress[i] = EEPROM.read(i);
   }
-
   Serial.print("Loaded address from memory: ");
   Print_Address(savedAddress);
 }
@@ -74,20 +67,26 @@ void EEPROM_Save(void) {
 }
 
 
-
 void OUT_setup() {
   Serial1.begin(115200, SERIAL_8N1, 20, 21);
 }
 
-//#define LED_PIN  2
 
 void OUT_loop(void) {
-  uint8_t hr;
+  uint8_t data;
   while (1) {
-    portENTER_CRITICAL(&mux);
-    hr = heartRate;
-    portEXIT_CRITICAL(&mux);
-    Serial1.write(hr);
+    switch (state) {
+      case ST_IDLE:
+        data = 1;
+        break;
+      case ST_AVAILABLE:
+        data = 2;
+        break;
+      case ST_CONNECTED:
+        data = heartRate;
+        break;
+    }
+    Serial1.write(data);
     vTaskDelay(500 / portTICK_PERIOD_MS);
   }
 }
@@ -100,76 +99,95 @@ void KEY_setup(void) {
 
 
 void KEY_loop(void) {
-  uint8_t k;
-  uint8_t previousState = 1;
-  uint8_t currentState = 0;
+  uint32_t lastUnpressedTime = 0;
+  uint32_t holdTime = 0;
   while (1) {
-
-    previousState = currentState;
-    currentState = digitalRead(9);
-    if ((previousState == 1) && (currentState == 0)) {
-      keyPressedFlag = 1;
+    if (digitalRead(9) == 1) {
+      lastUnpressedTime = millis();
+      holdTime = 0;
+    } else {
+      holdTime = millis() - lastUnpressedTime;
     }
-    vTaskDelay(50 / portTICK_PERIOD_MS);
-
-
-    if (keyPressedFlag && (state == ST_AVAILABLE)) {
-      BLEDevice::getScan()->stop();
+#if USE_FIXED_MAX_ADDRESS == 0
+    if ((holdTime > 1000) && (state == ST_AVAILABLE)) {
       Serial.println("Bind key pressed");
-      connectCommandFlag = 1;
+      EEPROM_Save();
+      vTaskDelay(500 / portTICK_PERIOD_MS);
+      ESP.restart();
     }
+#endif
+    vTaskDelay(50 / portTICK_PERIOD_MS);
   }
 }
 
 
+
+#if USE_RGB_LEDS
+CRGB leds[2];
+#define LED_OFF    { leds[0] = CRGB::Black; FastLED.show(); }
+#define LED_ON(x)  { leds[0] = CRGB::x; FastLED.show(); }
+#else
+#define LED_OFF     digitalWrite(LED_PIN, 1)
+#define LED_ON(x)   digitalWrite(LED_PIN, 0)
+#endif
+
 void LED_setup(void) {
-  FastLED.addLeds<LED_TYPE, LED_PIN>(leds, NUM_LEDS);
+#if USE_RGB_LEDS
+  FastLED.addLeds<WS2812, LED_PIN>(leds, 2);
   FastLED.setBrightness(40);
+#else
+  pinMode(LED_PIN, OUTPUT);
+#endif
 }
 
 
 void LED_loop(void) {
+  uint32_t lastConnectedTime = 0;
   while (1) {
     switch (state) {
       case ST_IDLE:
-        leds[0] = CRGB::Red;
-        FastLED.show();
-        vTaskDelay(100 / portTICK_PERIOD_MS);
-        leds[0] = CRGB::Black;
-        FastLED.show();
+        LED_ON(Red);
+        //leds[0] = CRGB::Red;
+        //FastLED.show();
+        vTaskDelay(200 / portTICK_PERIOD_MS);
+        LED_OFF;
+        //leds[0] = CRGB::Black;
+        //FastLED.show();
         vTaskDelay(200 / portTICK_PERIOD_MS);
         break;
       case ST_AVAILABLE:
-        leds[0] = CRGB::Yellow;
-        FastLED.show();
-        vTaskDelay(75 / portTICK_PERIOD_MS);
-        leds[0] = CRGB::Black;
-        FastLED.show();
-        vTaskDelay(75 / portTICK_PERIOD_MS);
+        LED_ON(Orange);
+        //leds[0] = CRGB::Orange;
+        //FastLED.show();
+        vTaskDelay(50 / portTICK_PERIOD_MS);
+        //leds[0] = CRGB::Black;
+        //FastLED.show();
+        LED_OFF;
+        vTaskDelay(50 / portTICK_PERIOD_MS);
         break;
       case ST_CONNECTED:
-        leds[0] = CRGB::Blue;
-        FastLED.show();
+        lastConnectedTime = millis();
+        LED_ON(Blue);
+        //leds[0] = CRGB::Blue;
+        //FastLED.show();
         vTaskDelay(100 / portTICK_PERIOD_MS);
         break;
+    }
+    
+    if (millis() > lastConnectedTime + (SLEEP_TIMEOUT)*1000) {
+      //leds[0] = CRGB::Black;
+      Serial.println("Enter sleep mode");
+      //FastLED.show();
+      LED_OFF;
+      esp_deep_sleep_start();
     }
   }
 }
 
 
-
-/**
-   This part is based on ESP32 BLE example from Arduino library
-*/
-
-// The remote HRM service we wish to connect to.
 static  BLEUUID serviceUUID(BLEUUID((uint16_t)0x180D));
-// The HRM characteristic of the remote service we are interested in.
 static  BLEUUID    charUUID(BLEUUID((uint16_t)0x2A37));
 
-static boolean doConnect = false;
-static boolean doScan = false;
-static boolean deviceFound = false;
 static BLERemoteCharacteristic* pRemoteCharacteristic;
 static BLEAdvertisedDevice* myDevice;
 
@@ -180,14 +198,13 @@ static void notifyCallback(BLERemoteCharacteristic* pBLERemoteCharacteristic,
   if (pData[0] & 0x02) {
     lastGoodMeasurementTime = millis();
   }
-  portENTER_CRITICAL(&mux);
+  //portENTER_CRITICAL(&mux);
   if ((millis() - lastGoodMeasurementTime) > CONTACT_LOST_TIMEOUT_MS) {
     heartRate = 0;
   } else {
     heartRate = pData[1];
   }
-  portEXIT_CRITICAL(&mux);
-  Serial.printf("%7d  ", millis());
+  //portEXIT_CRITICAL(&mux);
   Serial.printf("Notification %s: ", pBLERemoteCharacteristic->getUUID().toString().c_str());
   for (uint8_t i = 0; i < length; i++) {
     Serial.printf("%3d ", pData[i]);
@@ -199,7 +216,6 @@ class MyClientCallback : public BLEClientCallbacks {
     void onConnect(BLEClient* pclient) {
       Serial.println("'onConnect' callback");
     }
-
     void onDisconnect(BLEClient* pclient) {
       Serial.println("'onDisconnect' callback");
       state = ST_IDLE;
@@ -242,42 +258,34 @@ bool connectToServer() {
   if (pRemoteCharacteristic->canNotify())
     pRemoteCharacteristic->registerForNotify(notifyCallback);
 
-  //connected = true;
   state = ST_CONNECTED;
   return true;
 }
 
 
 class MyAdvertisedDeviceCallbacks: public BLEAdvertisedDeviceCallbacks {
-    // Called for each advertising BLE server
     void onResult(BLEAdvertisedDevice advertisedDevice) {
       Serial.print("BLE Advertised Device found: ");
       Serial.println(advertisedDevice.toString().c_str());
 
       if (advertisedDevice.haveServiceUUID() && advertisedDevice.isAdvertisingService(serviceUUID)) {
+        
+        Serial.print("Heart rate monitor available: ");
+        Serial.println(advertisedDevice.getAddress().toString());
 
-        //Serial.print("Heart rate monitor available");
-        //Serial.println(advertisedDevice.getAddress().toString());
-
-        //
-
-        boolean isMACok = false;
-
-        if (memcmp(advertisedDevice.getAddress().getNative(), savedAddress, 6) == 0) {
-          isMACok = true;
+#if USE_FIXED_MAX_ADDRESS
+        if (advertisedDevice.getAddress().toString() != FIXED_MAX_ADDRESS)) {
+          return;
         }
+#endif
+        
         memcpy(advertisedAddress, advertisedDevice.getAddress().getNative(), 6);
         
-        if (isMACok) {
+        if (memcmp(advertisedDevice.getAddress().getNative(), savedAddress, 6) == 0) { 
           foundSavedDevice = true;
-          
+          myDevice = new BLEAdvertisedDevice(advertisedDevice);
           BLEDevice::getScan()->stop();
         }
-
-        if (myDevice != NULL) {
-          delete myDevice;
-        }
-        myDevice = new BLEAdvertisedDevice(advertisedDevice);
         state = ST_AVAILABLE;
       }
     }
@@ -299,40 +307,26 @@ void BLE_setup(void) {
 }
 
 
-
 void BLE_loop(void) {
-
-  Serial.println("Enter BLE loop");
   while (1) {
-    Serial.println("Loop");
-
-    if ((keyPressedFlag) || (foundSavedDevice)) {
-      if (state == ST_AVAILABLE) {
-        if (connectToServer()) {
-          Serial.println("Connected to the BLE Server");
-          wasConnected = true;
-          if (keyPressedFlag) {
-            EEPROM_Save();
-            ESP.restart();
-          }
-        } else {
-          Serial.println("Failed to connect to the server");
-          state = ST_IDLE;
-        }
+    if (foundSavedDevice) {
+      if (connectToServer()) {
+        Serial.println("Connected to the BLE Server");
+        wasConnected = true;
+      } else {
+        Serial.println("Failed to connect to the server");
+        state = ST_IDLE;
       }
-      keyPressedFlag = 0;
+      foundSavedDevice = 0;
     }
-
     if (state == ST_IDLE) {
-      if (wasConnected) {
+      if (wasConnected) { // reconnect
         BLEDevice::getScan()->start(0);
       }
     }
     vTaskDelay(1000 / portTICK_PERIOD_MS);
   }
 }
-
-// TODO: no connection in 1 minute: Sleep mode
 
 
 void BLE_task(void * p) {
@@ -356,13 +350,12 @@ void KEY_task(void * p) {
 }
 
 
-
 void setup() {
   portMUX_INITIALIZE(&mux);
   xTaskCreate( &BLE_task, "Bluetooth", 100000, NULL, 1, &bleTaskHandle );
   xTaskCreate( &OUT_task, "Pulses",    10000,  NULL, 2, &outTaskHandle );
-  xTaskCreate( &LED_task, "Blink",     10000,   NULL, 3, &ledTaskHandle );
-  xTaskCreate( &KEY_task, "Key",     1000,   NULL, 4, &keyTaskHandle );
+  xTaskCreate( &LED_task, "Blink",     10000,  NULL, 3, &ledTaskHandle );
+  xTaskCreate( &KEY_task, "Key",       10000,   NULL, 4, &keyTaskHandle );
 }
 
 void loop() {
