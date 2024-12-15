@@ -3,6 +3,9 @@ local nextHRUpdateTime = 0
 local nextStatsUpdateTime = 0
 local currentTime = 0
 
+local lastSerialRxTime = 0
+local status = -1
+
 local armSwitch = 'sd'
 
 local arms = {}
@@ -48,6 +51,7 @@ local function init_func()
     stats[i] = 0
     arms[i] = false
   end
+  setSerialBaudrate(115200)
 end
 
 local function bpmToY(bpm)
@@ -70,8 +74,18 @@ local function drawDisplay()
   lcd.clear()
   if showGraph then -- Single number
     lcd.drawFilledRectangle(0, 0, LCD_W, 10)
-    lcd.drawText(34, 1, "Heart rate", INVERS)
-    if heartRate > 30 then
+    
+    if status == -1 then 
+      lcd.drawText(10, 1, "ESP32 not connected", INVERS)
+    elseif status == 1 then
+      lcd.drawText(19, 1, "Sensor not found", INVERS)
+    elseif status == 2 then
+      lcd.drawText(22, 1, "Sensor available", INVERS)
+    else
+      lcd.drawText(34, 1, "Heart rate", INVERS)
+    end
+    
+    if heartRate > 0 then
       lcd.drawText(62, 28, tostring(heartRate), DBLSIZE)
       blinkCounter = blinkCounter + 1
     else
@@ -124,13 +138,36 @@ local function run_func(event)
 end
 
 local function bg_func()
-  local newHeartRate = 0
+  --local heartRate = 0
   currentTime = getTime()
-  newHeartRate = math.floor( ((getValue('trn1') + 1000 ) * 200 ) / 2000)
-  if currentTime > nextHRUpdateTime then
-    heartRate = newHeartRate
-    nextHRUpdateTime = currentTime + 100
+  data = serialRead()
+  if data then
+    if string.len(data) == 1 then
+      lastSerialRxTime = getTime()
+      value = string.byte(data, 1)
+      --model.setGlobalVariable(0, 0, value-100)
+      if value < 30 then
+        status = value
+        heartRate = 0
+      else
+        status = 3
+        heartRate = value
+      end
+      lastSerialRxTime = getTime()
+    end
   end
+  
+  if (getTime() - lastSerialRxTime) > 200 then
+    status = -1
+    heartRate = 0
+  end
+  
+
+  --newHeartRate = math.floor( ((getValue('trn1') + 1000 ) * 200 ) / 2000)
+  --if currentTime > nextHRUpdateTime then
+  --  heartRate = newHeartRate
+  --  nextHRUpdateTime = currentTime + 100
+  --end
   putToAvgBuffer(heartRate)
   return 0
 end
