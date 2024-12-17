@@ -74,51 +74,51 @@ Now ESP32 board is bound to HR-monitor.
 ### 3. Hardware
 Wire up ESP32 module to your Radio transmitter as depicted below:
 <p align="center">
-<img src="Images/connection_diagram.png" width="400" />
-</p>
-You can use external 5V source (such as power-bank) or connect it to available 5V transmitter outputs (e.g. pins in JR module bay, Radiomaster TX16S bottom connector, etc.).
-
-Trainer port uses 3.5mm 3-pin jack connector.
-
-**For advanced enthusiasts:**<br>
-You can wire it up directly to the main board of your radio. Pads are not labeled usually, so be very careful!! <br>
-Here is an example, how I did it for my Taranis Q X7 board:
-<p align="center">
-<img src="Images/taranis_qx7.jpg" width="250" />
+<img src="Images/connection_diagram.png" height="300" />
+<img src="Images/connector.jpg" height="250" />
 </p>
 
-### 4. OpenTX
-1. Configure Trainer port as `Master/Jack`. Go to `Trainer` page to make sure if some variable signal is coming (bottom line).
+### 4. EdgeTX
+Configure AUX port for `LUA` in `Hardware` tab.
 
 <p align="center">
-<img src="Images/opentx_master.png"/> <img src="Images/opentx_trainer.png"/>
+<img src="Images/edgetx_aux_lua.png"/>
 </p>
 
-2. Go to `Mixer` page. Set one of your channels source to `TR1`. Now you are redirecting heart rate to RX.
+Set `Switch Mode` to `Wide` in ExpressLRS script.
 
 <p align="center">
-<img src="Images/opentx_mixer.png"/>
+<img src="Images/edgetx_switch_mode.png"/>
 </p>
 
-3. (Optional) Copy [`heart.lua`](/Lua/) and [`heart.bmp`](/Lua/) to `SCRIPTS/TELEMETRY` folder on SD card.<br>
+Configure any of channel (from CH6 to CH12) as following:<br>
+`Source: MAX`<br>
+`Weight: GV1`
+
+<p align="center">
+<img src="Images/edgetx_mixes.png"/>
+</p>
+
+Copy [`heart.lua`](/Lua/) and [`heart.bmp`](/Lua/) to `SCRIPTS/TELEMETRY` directory on SD card.<br>
 Enable it on `Display` page.
 
 <p align="center">
-<img src="Images/opentx_telemetry.png"/>
+<img src="Images/edgetx_telemetry.png"/>
 </p>
 
-Now you are able to watch current heart rate and the latest statistics plot on the radio display. 
+Now you are able to watch current heart rate and the latest statistics plot on the radio display. <br>
+Long press `TELE` key.
 
 <p align="center">
-<img src="Images/opentx_lua_heart_rate.png"/> <img src="Images/opentx_lua_graph.png"/>
+<img src="Images/edgetx_lua_heart_rate.png"/> <img src="Images/edgetx_lua_graph.png"/>
 </p>
 
 Switch between them with a scroll wheel.<br>
-Only 128x64 displays are supported so far.
+Only 128x64 displays are supported now.
 
 ### 5. Betaflight
 
-1) Flash your FC with Betaflight 4.4.
+1) Flash your FC with Betaflight >4.4.
 
 2) Upload you favourite [font](/Fonts/mcm) with additional heart symbol in `Font Manager` on OSD tab.
 
