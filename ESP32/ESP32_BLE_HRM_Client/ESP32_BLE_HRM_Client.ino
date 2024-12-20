@@ -1,17 +1,10 @@
+#include "config.h"
 #include "BLEDevice.h"
 #include <EEPROM.h>
+
+#if USE_RGB_LEDS
 #include <FastLED.h>
-
-#define  USE_RGB_LEDS   0     // Zero: 1,  SuperMini: 0
-#define  LED_PIN        8     // Zero: 10, SuperMini: 8
-
-#define  USE_FIXED_MAC_ADDRESS   0   // Set to 0 if you want to bind with a key
-
-#if USE_FIXED_MAX_ADDRESS
-#define FIXED_MAC_ADDRESS "01:23:45:67:89:ab"
 #endif
-
-#define SLEEP_TIMEOUT 60
 
 boolean wasConnected = false;
 boolean foundSavedDevice = false;
