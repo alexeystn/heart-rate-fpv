@@ -1,6 +1,6 @@
 # Heart Rate Monitor for FPV drones
 
-Watch your heart rate on Betaflight OSD 💓
+Watch your heart rate on Betaflight OSD ❤️📈
 
 <p align="center">
   
@@ -18,12 +18,12 @@ Chest strap monitors are recommended. They are much more precise than wrist moni
 
 ### 2. ESP32 Firmware
 
-1. Download source code.
-2. Set LED paremeters (USE_RGB_LEDS and LED_PIN)
-3. Select ESP32-C3 board, and 80 MHz CPU frequency.
-4. Upload to ESP32.
+1. Download firmware [source code](ESP32).
+2. Configure parameters in `config.h` for your target board.
+3. Select `Board: ESP32C3 Dev Module`, and `CPU Frequency: 80 MHz (WiFi)` in `Tools` menu.
+4. Upload firmware to ESP32.
 
-[How to install ESP32 in Arduino IDE](https://randomnerdtutorials.com/installing-the-esp32-board-in-arduino-ide-windows-instructions/)
+[How to install ESP32 in Arduino IDE](https://randomnerdtutorials.com/installing-esp32-arduino-ide-2-0/)
 
 ### 3. Bind procedure
 
@@ -32,13 +32,15 @@ Chest strap monitors are recommended. They are much more precise than wrist moni
 | Slow blink | No devices    |
 | Fast blink | Device found     |
 | Solid      | Device connected |
+| Off        | Sleep     |
 
 1. Power up ESP32 module.
 2. Put on your heart rate monitor.
 3. Wait until LED is blinking fast.
 4. Hold BOOT key for 1 second. 
 5. Wait until LED is solid.<br>
-Now your HR monitor is bound to ESP32 module.
+Now your HR monitor is bound to ESP32 module.<br>
+If no devices connected in 1 minute, module enters sleep mode.
 
 ### 4. Connection
 Wire up ESP32 module to your Radio transmitter as depicted below:
