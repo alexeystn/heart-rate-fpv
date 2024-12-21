@@ -20,10 +20,14 @@ Chest monitors are recommended. They are much more precise than wrist monitors.
 
 1. Download firmware [source code](ESP32).
 2. Configure parameters in `config.h` for your target board.
-3. Select `Board: ESP32C3 Dev Module`, `USB CDC On Boot: Enabled` and `CPU Frequency: 80 MHz (WiFi)` in `Tools` menu.
+3. Select parameters  in `Tools` menu: <br>
+    `Board: ESP32C3 Dev Module`<br>
+    `USB CDC On Boot: Enabled`<br>
+    `CPU Frequency: 80 MHz (WiFi)`
 4. Upload firmware to ESP32.
 
-[How to install ESP32 in Arduino IDE](https://randomnerdtutorials.com/installing-esp32-arduino-ide-2-0/)
+[How to install ESP32 in Arduino IDE](https://randomnerdtutorials.com/installing-esp32-arduino-ide-2-0/)<br>
+Project was tested with Arduino IDE 2.3.4, ESP32 by Espressif board package 3.1.0.
 
 ### 3. Bind procedure
 
