@@ -13,8 +13,8 @@ Watch your heart rate on Betaflight OSD ❤️📈
 </p>
 
 ### 1. HR Monitor
-Get any available chest strap heart rate monitor with Bluetooth (for example, Kalenji ZT26D, Magene H64, Coospo H6).<br>
-Chest strap monitors are recommended. They are much more precise than wrist monitors.
+Get any Bluetooth chest strap heart rate monitor (for example, Kalenji ZT26D, Magene H64, Coospo H6).<br>
+Chest monitors are recommended. They are much more precise than wrist monitors.
 
 ### 2. ESP32 Firmware
 
@@ -35,9 +35,9 @@ Chest strap monitors are recommended. They are much more precise than wrist moni
 | Off        | Sleep     |
 
 1. Power up ESP32 module.
-2. Put on your heart rate monitor.
+2. Power up your heart rate monitor.
 3. Wait until LED is blinking fast.
-4. Hold BOOT key for 1 second. 
+4. Hold BOOT key for 1 second and release. 
 5. Wait until LED is solid.<br>
 Now your HR monitor is bound to ESP32 module.<br>
 If no devices connected in 1 minute, module enters sleep mode.
@@ -77,7 +77,7 @@ Wire up ESP32 module to your Radio transmitter as depicted below:
 <img src="Images/edgetx_telemetry.png"/>
 </p>
 
-6. Exit to main screen and long press `TELE` key.
+6. Return to main screen and long press `TELE` key.
 <p align="center">
 <img src="Images/edgetx_lua_heart_rate.png"/> <img src="Images/edgetx_lua_graph.png"/>
 </p>
@@ -86,21 +86,25 @@ Wire up ESP32 module to your Radio transmitter as depicted below:
 
 ### 5. Betaflight
 
-1) Use FC with Betaflight ≥4.4.
+1) Betaflight ≥4.4 is required.
 
-2) Analog: Upload [font](/Fonts/mcm) with additional heart symbol in `Font Manager` on OSD tab. <br>
-   HDZero: Save font file to your goggles' SD card .
+2) Enable `Aux value` element on OSD tab in Betaflight Configurator.
 
-3) Enable `Aux value` element on OSD tab in configurator.
-
-4) Enter the following lines in CLI:
+3) Enter the following lines in CLI:
 ```
 set osd_aux_symbol = 121
-set osd_aux_channel = 11
+set osd_aux_channel = 7
 save
 ```
 
-Where `11` is the channel you configured in OpenTX mixer.
+Where `7` is the channel number in EdgeTX mixer minus 4.<br>
+For example: 5 for CH9, 6 for CH10, 7 for CH11, etc.
+
+4) **Analog**: Upload [font](/Fonts/mcm) with additional heart symbol in `Font Manager` on OSD tab in Betaflight Configurator.
+  
+   **HDZero**: Put [font](/Fonts/HDZero) file with heart symbol to your goggles' SD card at `resource/OSD/FC/`. <br>
+   Rename file to `BTFL_000.bmp`.
+   [More info](https://github.com/hd-zero/hdzero-osd-font-library/)
 
 Done! 
 <br>
