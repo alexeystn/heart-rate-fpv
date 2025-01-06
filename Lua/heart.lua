@@ -18,6 +18,7 @@ local arms = {}
 local stats = {}
 local statsPointer = 1
 local statsSize = 128 - 17 - 2
+local maxHeartRate = 0
 
 local function putToStats(bpm)
   stats[statsPointer] = bpm
@@ -37,6 +38,9 @@ local function putToAvgBuffer(bpm)
   if bpm > 0 then
     avgSum = avgSum + bpm
     avgCount = avgCount + 1
+    if bpm > maxHeartRate then
+      maxHeartRate = bpm
+    end
   end
   if currentTime < nextStatsUpdateTime then
     return
@@ -92,18 +96,19 @@ local function drawDisplay()
     end
     
     if heartRate > 0 then
-      lcd.drawText(62, 28, tostring(heartRate), DBLSIZE)
+      lcd.drawText(62, 26, tostring(heartRate), DBLSIZE)
       blinkCounter = blinkCounter + 1
     else
-      lcd.drawText(62, 28, "--", DBLSIZE)
+      lcd.drawText(62, 26, "--", DBLSIZE)
       blinkCounter = 0
     end
     if blinkCounter <= 15 then
-      lcd.drawPixmap(42, 28, "/SCRIPTS/TELEMETRY/heart.bmp")
+      lcd.drawPixmap(42, 26, "/SCRIPTS/TELEMETRY/heart.bmp")
     end
     if blinkCounter >= 20 then 
       blinkCounter = 0
-    end    
+    end
+    lcd.drawText(47, 57, "Max "..tostring(maxHeartRate), SMALLSIZE)
   else -- Graph
     for bpm = 50,150,10 do
       lcd.drawLine(17, bpmToY(bpm), 17+statsSize, bpmToY(bpm), DOTTED, FORCE)
@@ -138,6 +143,9 @@ local function run_func(event)
   if (event == EVT_ROT_RIGHT) or (event == EVT_ROT_LEFT) or 
    (event == EVT_PLUS_BREAK) or (event == EVT_MINUS_BREAK) then
     showGraph = not showGraph
+  end
+  if (event == EVT_ENTER_BREAK) then 
+    maxHeartRate = 0
   end
   drawDisplay()
   return 0
