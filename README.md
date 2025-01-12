@@ -13,7 +13,7 @@ Watch your heart rate on Betaflight OSD ❤️📈
 </p>
 
 ### 1. HR Monitor
-Get any Bluetooth chest strap heart rate monitor (for example, Kalenji ZT26D, Magene H64, Coospo H6).<br>
+Get any Bluetooth chest strap heart rate monitor (for example, Magene H64, Coospo H6).<br>
 Chest monitors are recommended. They are much more precise than wrist monitors.
 
 ### 2. ESP32 Firmware
@@ -54,6 +54,8 @@ Wire up ESP32 module to your Radio transmitter as depicted below:
 </p>
 
 ### 5. EdgeTX
+EdgeTX ≥2.10 is required.
+
 1. Configure AUX port for `LUA` in `Hardware` tab.
 
 <p align="center">
@@ -68,7 +70,7 @@ Wire up ESP32 module to your Radio transmitter as depicted below:
 
 3. Configure any aux channel (from CH6 to CH12) as following:<br>
 `Source: MAX`<br>
-`Weight: GV1`
+`Weight: G1` (long press)
 
 <p align="center">
 <img src="Images/edgetx_mixes.png"/>
