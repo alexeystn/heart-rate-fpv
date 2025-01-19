@@ -38,6 +38,7 @@ Project was tested with Arduino IDE 2.3.4, ESP32 by Espressif board package 3.1.
 | Solid      | Device connected |
 | Off        | Sleep     |
 
+0. Disconnect heart rate monitor from your phone (if connected before).
 1. Power up ESP32 module.
 2. Power up your heart rate monitor.
 3. Wait until LED is blinking fast.
@@ -51,7 +52,9 @@ Wire up ESP32 module to your Radio transmitter as depicted below:
 <p align="center">
 <img src="Images/connection_diagram.png" height="300" />
 <img src="Images/connector.jpg" height="250" />
+<img src="Images/esp_pinout.png" height="300" />
 </p>
+Warning: check your board pin numbers before soldering.
 
 ### 5. EdgeTX
 EdgeTX ≥2.10 is required.
@@ -109,8 +112,6 @@ For example: 5 for CH9, 6 for CH10, 7 for CH11, etc.
 4) **Analog**: Upload [font](/Fonts/mcm) with additional heart symbol in `Font Manager` on OSD tab in Betaflight Configurator.
   
    **HDZero**: Put [font](/Fonts/HDZero) file with heart symbol to your goggles' SD card at `resource/OSD/FC/`. <br>
-   Rename file to `BTFL_000.bmp`.
-   [More info](https://github.com/hd-zero/hdzero-osd-font-library/)
 
 Done! 
 <br>
