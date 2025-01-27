@@ -20,6 +20,10 @@ local statsPointer = 1
 local statsSize = 128 - 17 - 2
 local maxHeartRate = 0
 
+local log = {}
+local logPointer = 1
+local logSize = 8
+
 local function putToStats(bpm)
   stats[statsPointer] = bpm
   arms[statsPointer] = getValue(armSwitch) > 0
@@ -27,6 +31,14 @@ local function putToStats(bpm)
     statsPointer = statsPointer + 1
   else
     statsPointer = 1
+  end
+end
+
+local function putToLog(str)
+  log[logPointer] = str
+  logPointer = logPointer + 1
+  if logPointer > logSize then
+    logPointer = 1
   end
 end
 
@@ -61,6 +73,9 @@ local function init_func()
     stats[i] = 0
     arms[i] = false
   end
+  for i = 1,logSize do
+    log[i] = '***'
+  end
   setSerialBaudrate(115200)
 end
 
@@ -77,12 +92,12 @@ local function cntToPnt(i)
   end
 end
 
-local showGraph = true
+local displayMode = 1
 local blinkCounter = 0
 
 local function drawDisplay()
   lcd.clear()
-  if showGraph then -- Single number
+  if displayMode == 1 then -- Single number
     lcd.drawFilledRectangle(0, 0, LCD_W, 10)
     
     if status == ST_NO_ESP32 then 
@@ -109,7 +124,7 @@ local function drawDisplay()
       blinkCounter = 0
     end
     lcd.drawText(47, 57, "Max "..tostring(maxHeartRate), SMALLSIZE)
-  else -- Graph
+  elseif displayMode == 2 then -- Graph
     for bpm = 50,150,10 do
       lcd.drawLine(17, bpmToY(bpm), 17+statsSize, bpmToY(bpm), DOTTED, FORCE)
     end
@@ -136,16 +151,28 @@ local function drawDisplay()
         lcd.drawLine(x, y-1, x, y+1, SOLID, FORCE)
       end
     end
+  else
+    lcd.drawLine(LCD_W-1, 0, LCD_W-1, LCD_H-1, SOLID, FORCE)
+    lcd.drawLine(0, 0, 0, LCD_H-1, SOLID, FORCE)
+    for i = 1,logSize do
+      pos = math.fmod( i + logSize + 1 - logPointer, logSize)
+      lcd.drawText(2, pos*8, log[i], SMLSIZE)
+    end
   end
 end
 
 local function run_func(event)   
-  if (event == EVT_ROT_RIGHT) or (event == EVT_ROT_LEFT) or 
-   (event == EVT_PLUS_BREAK) or (event == EVT_MINUS_BREAK) then
-    showGraph = not showGraph
+  if ((event == EVT_ROT_RIGHT) or (event == EVT_PLUS_BREAK)) and (displayMode < 3) then
+    displayMode = displayMode + 1
+  end
+  if ((event == EVT_ROT_LEFT) or (event == EVT_MINUS_BREAK)) and (displayMode > 1) then
+    displayMode = displayMode - 1
   end
   if (event == EVT_ENTER_BREAK) then 
     maxHeartRate = 0
+    if displayMode == 3 then
+      serialWrite('R')
+    end
   end
   drawDisplay()
   return 0
@@ -159,6 +186,7 @@ local function bg_func()
     if string.len(data) == 1 then
       lastSerialRxTime = getTime()
       value = string.byte(data, 1)
+      putToLog(tostring(value))
       --model.setGlobalVariable(0, 0, value-100)
       if value < 30 then
         status = value
