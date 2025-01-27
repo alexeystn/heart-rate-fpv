@@ -22,7 +22,7 @@ local maxHeartRate = 0
 
 local log = {}
 local logPointer = 1
-local logSize = 8
+local logSize = 9
 
 local function putToStats(bpm)
   stats[statsPointer] = bpm
@@ -67,6 +67,34 @@ local function putToAvgBuffer(bpm)
   avgSum = 0
   avgCount = 0
 end
+
+local function parseMessage(str)
+  local ret = nil
+  if string.sub(str, 1, 2) == "H:" then
+    ret = tonumber(string.sub(str, 3, -1))
+  end
+  return ret
+end
+
+local rxLine = ""
+local ch = 0
+
+local function processRxData(str)
+  for i = 1,string.len(str) do
+    ch = string.sub(str, i, i)
+    rxLine = rxLine .. ch
+    if ch == '\n' then
+      putToLog(rxLine)
+      ret = parseMessage(rxLine)
+      rxLine = ""
+    end
+    if string.len(rxLine) > 50 then
+      rxLine = ""
+    end
+  end
+  return ret
+end
+
 
 local function init_func()
   for i = 1,statsSize do
@@ -154,9 +182,14 @@ local function drawDisplay()
   else
     lcd.drawLine(LCD_W-1, 0, LCD_W-1, LCD_H-1, SOLID, FORCE)
     lcd.drawLine(0, 0, 0, LCD_H-1, SOLID, FORCE)
-    for i = 1,logSize do
-      pos = math.fmod( i + logSize + 1 - logPointer, logSize)
-      lcd.drawText(2, pos*8, log[i], SMLSIZE)
+    local pos = 0
+    for i = logPointer, logSize do
+      lcd.drawText(2, pos*7, log[i], SMLSIZE)
+      pos = pos + 1
+    end
+    for i = 1, logPointer-1 do
+      lcd.drawText(2, pos*7, log[i], SMLSIZE)
+      pos = pos + 1
     end
   end
 end
@@ -182,21 +215,21 @@ local function bg_func()
   --local heartRate = 0
   currentTime = getTime()
   data = serialRead()
+  
   if data then
-    if string.len(data) == 1 then
-      lastSerialRxTime = getTime()
-      value = string.byte(data, 1)
-      putToLog(tostring(value))
-      --model.setGlobalVariable(0, 0, value-100)
-      if value < 30 then
-        status = value
-        heartRate = 0
-      else
-        status = ST_CONNECTED
-        heartRate = value
-      end
-      lastSerialRxTime = getTime()
+    value = processRxData(data)
+  end
+  
+  if value then
+    lastSerialRxTime = getTime()
+    if value < 30 then
+      status = value
+      heartRate = 0
+    else
+      status = ST_CONNECTED
+      heartRate = value
     end
+    lastSerialRxTime = getTime()
   end
   
   if (getTime() - lastSerialRxTime) > 200 then
