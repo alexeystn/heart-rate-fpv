@@ -77,6 +77,12 @@ void OUT_loop(void) {
         break;
     }
     Serial1.write(data);
+    if (Serial1.available()) {
+      uint8_t b = Serial1.read();
+      if (b == 'R') {
+        ESP.restart();
+      }
+    }
     vTaskDelay(500 / portTICK_PERIOD_MS);
   }
 }
