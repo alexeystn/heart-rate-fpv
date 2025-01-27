@@ -64,6 +64,7 @@ void OUT_setup() {
 
 void OUT_loop(void) {
   uint8_t data;
+  Serial1.println("S:ESP32 Heart Rate");
   while (1) {
     switch (state) {
       case ST_IDLE:
@@ -76,7 +77,8 @@ void OUT_loop(void) {
         data = heartRate;
         break;
     }
-    Serial1.write(data);
+    Serial1.print("H:");
+    Serial1.println(data);
     if (Serial1.available()) {
       uint8_t b = Serial1.read();
       if (b == 'R') {
@@ -199,9 +201,11 @@ static void notifyCallback(BLERemoteCharacteristic* pBLERemoteCharacteristic,
 class MyClientCallback : public BLEClientCallbacks {
     void onConnect(BLEClient* pclient) {
       Serial.println("'onConnect' callback");
+      Serial1.println("S:Connected");
     }
     void onDisconnect(BLEClient* pclient) {
       Serial.println("'onDisconnect' callback");
+      Serial1.println("S:Disconnected");
       state = ST_IDLE;
     }
 };
