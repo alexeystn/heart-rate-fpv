@@ -154,7 +154,7 @@ void LED_loop(void) {
         break;
     }
     
-    if (millis() > lastConnectedTime + (SLEEP_TIMEOUT)*1000) {
+    if ((millis() > (SLEEP_TIMEOUT)*1000) && (lastConnectedTime == 0)) {
       Serial.println("Enter sleep mode");
       LED_OFF;
       esp_deep_sleep_start();
