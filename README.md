@@ -16,6 +16,11 @@ Watch your heart rate on Betaflight OSD ❤️📈
 Get any Bluetooth chest strap heart rate monitor (for example, Magene H64, Coospo H6).<br>
 Chest monitors are recommended. They are much more precise than wrist monitors.
 
+Confirmed to work with Amazift watches [Youtube](https://youtu.be/IJwwdrY53Lg) <br>
+You must start any activity (you could add CyberSport lol) and scroll down and enable heart rate push <br>
+Than it would bind to esp32 without any problems <br>
+Tested on Amazfit Balance
+
 ### 2. ESP32 Firmware
 
 1. Download firmware [source code](ESP32).
