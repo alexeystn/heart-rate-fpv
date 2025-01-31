@@ -174,14 +174,13 @@ static void notifyCallback(BLERemoteCharacteristic* pBLERemoteCharacteristic,
                            size_t length,
                            bool isNotify) {
   if (pData[0] & 0x02) {
-  // Проверяем, содержит ли advertisedDevice строку "Amazfit"
+  // check if advertisedDevice contains "Amazfit"
    if (advertisedDevice.getName().find("Amazfit") != std::string::npos) {
-    // Если устройство Amazfit, проверяем, что pData[1] != 0
+    // if it is Amazfit, then check that 2nd bit (heart rate) is not null
     if (pData[1] != 0) {
      lastGoodMeasurementTime = millis();
     }
    } else {
-    // Если это не Amazfit, обновляем время без дополнительной проверки
     lastGoodMeasurementTime = millis();
    }
  }
