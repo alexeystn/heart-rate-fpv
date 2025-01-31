@@ -174,14 +174,17 @@ static void notifyCallback(BLERemoteCharacteristic* pBLERemoteCharacteristic,
                            size_t length,
                            bool isNotify) {
   if (pData[0] & 0x02) {
+  // Проверяем, содержит ли advertisedDevice строку "Amazfit"
+   if (advertisedDevice.getName().find("Amazfit") != std::string::npos) {
+    // Если устройство Amazfit, проверяем, что pData[1] != 0
+    if (pData[1] != 0) {
+     lastGoodMeasurementTime = millis();
+    }
+   } else {
+    // Если это не Amazfit, обновляем время без дополнительной проверки
     lastGoodMeasurementTime = millis();
-  }
-  //portENTER_CRITICAL(&mux);
-  if ((millis() - lastGoodMeasurementTime) > CONTACT_LOST_TIMEOUT_MS) {
-    heartRate = 0;
-  } else {
-    heartRate = pData[1];
-  }
+   }
+ }
   //portEXIT_CRITICAL(&mux);
   Serial.printf("Notification %s: ", pBLERemoteCharacteristic->getUUID().toString().c_str());
   for (uint8_t i = 0; i < length; i++) {
