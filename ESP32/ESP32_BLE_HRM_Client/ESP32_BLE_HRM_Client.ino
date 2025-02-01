@@ -169,16 +169,19 @@ static  BLEUUID    charUUID(BLEUUID((uint16_t)0x2A37));
 static BLERemoteCharacteristic* pRemoteCharacteristic;
 static BLEAdvertisedDevice* myDevice;
 
-static void notifyCallback(BLERemoteCharacteristic* pBLERemoteCharacteristic, uint8_t* pData, size_t length, bool isNotify) {
+static void notifyCallback(BLERemoteCharacteristic* pBLERemoteCharacteristic,
+                           uint8_t* pData,
+                           size_t length,
+                           bool isNotify) {
   if (pData[0] & 0x02) {
-  if (myDevice && myDevice->getName().find("Amazfit") != std::string::npos) {
-    if (pData[1] != 0) {
-      lastGoodMeasurementTime = millis();
-    }
-  } else {
     lastGoodMeasurementTime = millis();
   }
-}
+  //portENTER_CRITICAL(&mux);
+  if ((millis() - lastGoodMeasurementTime) > CONTACT_LOST_TIMEOUT_MS) {
+    heartRate = 0;
+  } else {
+    heartRate = pData[1];
+  }
   //portEXIT_CRITICAL(&mux);
   Serial.printf("Notification %s: ", pBLERemoteCharacteristic->getUUID().toString().c_str());
   for (uint8_t i = 0; i < length; i++) {
