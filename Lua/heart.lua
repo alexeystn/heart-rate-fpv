@@ -1,18 +1,21 @@
+---- Adjustable parameters: -----
+local armSwitch = 'sd'
+local consoleScreenEnabled = true  -- true/false
+---------------------------------
+
 local heartRate = 0
 local nextHRUpdateTime = 0
 local nextStatsUpdateTime = 0
 local currentTime = 0
 
 local ST_NO_ESP32 = -1
-local ST_IDLE = 1
-local ST_AVAILABLE = 2
-local ST_CONNECTED = 3
--- 0 is reserved
+local ST_IDLE = 0
+local ST_AVAILABLE = 1
+local ST_CONNECTED = 2
+local ST_ERROR = 3
 
 local status = ST_NO_ESP32
 local lastSerialRxTime = 0
-
-local armSwitch = 'sd'
 
 local arms = {}
 local stats = {}
@@ -35,7 +38,8 @@ local function putToStats(bpm)
 end
 
 local function putToLog(str)
-  log[logPointer] = str
+  ts = getDateTime()
+  log[logPointer] = string.format("%02d:%02d:%02d %s", ts['hour'], ts['min'], ts['sec'], str)
   logPointer = logPointer + 1
   if logPointer > logSize then
     logPointer = 1
@@ -69,23 +73,39 @@ local function putToAvgBuffer(bpm)
 end
 
 local function parseMessage(str)
-  local ret = nil
-  if string.sub(str, 1, 2) == "H:" then
-    ret = tonumber(string.sub(str, 3, -1))
+  local s
+  if string.sub(str, 3, 3) == ":" then
+    s = string.sub(str, 2, 2)
+    if s == "D" then
+      status = ST_IDLE
+      heartRate = 0
+    elseif s == "A" then
+      status = ST_AVAILABLE
+      heartRate = 0
+    elseif s == "C" then
+      status = ST_CONNECTED
+      heartRate = tonumber(string.sub(str, 4, -1))
+      if not heartRate then
+        heartRate = 0
+      end
+    end
   end
-  return ret
 end
 
 local rxLine = ""
 local ch = 0
 
 local function processRxData(str)
+  local ret = false
   for i = 1,string.len(str) do
     ch = string.sub(str, i, i)
     rxLine = rxLine .. ch
     if ch == '\n' then
-      putToLog(rxLine)
-      ret = parseMessage(rxLine)
+      if string.sub(rxLine, 1, 1) == ">"  then
+        putToLog(rxLine)
+        parseMessage(rxLine)
+        ret = true
+      end
       rxLine = ""
     end
     if string.len(rxLine) > 50 then
@@ -102,9 +122,9 @@ local function init_func()
     arms[i] = false
   end
   for i = 1,logSize do
-    log[i] = '***'
+    log[i] = ''
   end
-  setSerialBaudrate(115200)
+  setSerialBaudrate(9600)
 end
 
 local function bpmToY(bpm)
@@ -212,32 +232,19 @@ local function run_func(event)
 end
 
 local function bg_func()
-  --local heartRate = 0
   currentTime = getTime()
   data = serialRead()
-  
   if data then
     value = processRxData(data)
-  end
-  
-  if value then
-    lastSerialRxTime = getTime()
-    if value < 30 then
-      status = value
-      heartRate = 0
-    else
-      status = ST_CONNECTED
-      heartRate = value
+    if value then
+      lastSerialRxTime = getTime()
     end
-    lastSerialRxTime = getTime()
   end
-  
   if (getTime() - lastSerialRxTime) > 200 then
-    status = -1
+    status = ST_NO_ESP32
     heartRate = 0
   end
   model.setGlobalVariable(0, 0, heartRate-100)
-
   putToAvgBuffer(heartRate)
   return 0
 end
