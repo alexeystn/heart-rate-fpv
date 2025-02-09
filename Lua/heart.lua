@@ -200,7 +200,7 @@ local function drawDisplay()
       end
     end
   else  -- Console
-    lcd.drawLine(LCD_W-1, 0, LCD_W-1, LCD_H-1, SOLID, FORCE)
+    --lcd.drawLine(LCD_W-1, 0, LCD_W-1, LCD_H-1, SOLID, FORCE)
     lcd.drawLine(0, 0, 0, LCD_H-1, SOLID, FORCE)
     local pos = 0
     for i = logPointer, logSize do
@@ -211,6 +211,7 @@ local function drawDisplay()
       lcd.drawText(2, pos*7, log[i], SMLSIZE)
       pos = pos + 1
     end
+    lcd.drawText(91, 0, "[Reboot]", SMLSIZE)
   end
 end
 
