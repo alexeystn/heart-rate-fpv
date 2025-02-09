@@ -6,78 +6,79 @@
 #include <FastLED.h>
 #endif
 
-boolean wasConnected = false;
 boolean foundSavedDevice = false;
+boolean wasConnected = false;
 
 esp_bd_addr_t advertisedAddress;
 esp_bd_addr_t savedAddress;
 
 static uint8_t heartRate = 0;
-static uint32_t lastGoodMeasurementTime = 0;
-static boolean connected = false;
 
-#define CONTACT_LOST_TIMEOUT_MS   5000
-
+#define LUA_PORT  Serial1
+#define DBG_PORT  Serial
 TaskHandle_t outTaskHandle = NULL;
 TaskHandle_t bleTaskHandle = NULL;
 TaskHandle_t ledTaskHandle = NULL;
 TaskHandle_t keyTaskHandle = NULL;
-portMUX_TYPE mux;
 
-enum state_t {ST_IDLE = 1, ST_AVAILABLE = 2, ST_CONNECTED = 3};  // 0 is reserved
+enum state_t {
+  ST_IDLE = 0, 
+  ST_AVAILABLE = 1, 
+  ST_CONNECTED = 2, 
+  ST_ERROR = 3
+};
 
 state_t state = ST_IDLE;
 
 
 void Print_Address(uint8_t *p) {
   for (int i = 0; i < 5; i++) {
-    Serial.printf("%02x:", p[i]);
+    DBG_PORT.printf("%02x:", p[i]);
   }
-  Serial.printf("%02x\n", p[5]);
+  DBG_PORT.printf("%02x\n", p[5]);
 }
-
 
 void EEPROM_Load(void) {
   EEPROM.begin(6);
   for (int i = 0; i < 6; i++) {
     savedAddress[i] = EEPROM.read(i);
   }
-  Serial.print("Loaded address from memory: ");
+  DBG_PORT.print("Loaded address from memory: ");
   Print_Address(savedAddress);
 }
-
 
 void EEPROM_Save(void) {
   for (int i = 0; i < 6; i++) {
     EEPROM.write(i, advertisedAddress[i]);
   }
   EEPROM.commit();
-  Serial.print("Saved address to memory: ");
+  DBG_PORT.print("Saved address to memory: ");
   Print_Address(advertisedAddress);
 }
 
 
 void OUT_setup() {
-  Serial1.begin(115200, SERIAL_8N1, 20, 21);
+  LUA_PORT.begin(9600, SERIAL_8N1, 20, 21);
+  vTaskDelay(100 / portTICK_PERIOD_MS);
+  LUA_PORT.println();
+  vTaskDelay(100 / portTICK_PERIOD_MS);
+  LUA_PORT.println();
 }
-
 
 void OUT_loop(void) {
   uint8_t data;
+  const char stateLabels[4] = {'D', 'A', 'C', 'E'};
   while (1) {
-    switch (state) {
-      case ST_IDLE:
-        data = ST_IDLE;
-        break;
-      case ST_AVAILABLE:
-        data = ST_AVAILABLE;
-        break;
-      case ST_CONNECTED:
-        data = heartRate;
-        break;
+    LUA_PORT.printf(">%c:%d\n", stateLabels[state], heartRate);
+    if (LUA_PORT.available()) {
+      uint8_t b = LUA_PORT.read();
+      if (b == 'R') {
+        LUA_PORT.println(">Reboot");
+        vTaskDelay(100 / portTICK_PERIOD_MS);
+        ESP.restart();
+      }
     }
-    Serial1.write(data);
-    vTaskDelay(500 / portTICK_PERIOD_MS);
+    vTaskDelay(1000 / portTICK_PERIOD_MS);
   }
 }
 
@@ -86,7 +87,6 @@ void KEY_setup(void) {
   pinMode(9, INPUT_PULLUP);
   vTaskDelay(1000 / portTICK_PERIOD_MS);
 }
-
 
 void KEY_loop(void) {
   uint32_t lastUnpressedTime = 0;
@@ -100,7 +100,7 @@ void KEY_loop(void) {
     }
 #if USE_FIXED_MAX_ADDRESS == 0
     if ((holdTime > 1000) && (state == ST_AVAILABLE)) {
-      Serial.println("Bind key pressed");
+      DBG_PORT.println("Bind key pressed");
       EEPROM_Save();
       vTaskDelay(500 / portTICK_PERIOD_MS);
       ESP.restart();
@@ -109,7 +109,6 @@ void KEY_loop(void) {
     vTaskDelay(50 / portTICK_PERIOD_MS);
   }
 }
-
 
 
 #if USE_RGB_LEDS
@@ -129,7 +128,6 @@ void LED_setup(void) {
   pinMode(LED_PIN, OUTPUT);
 #endif
 }
-
 
 void LED_loop(void) {
   uint32_t lastConnectedTime = 0;
@@ -153,9 +151,10 @@ void LED_loop(void) {
         vTaskDelay(100 / portTICK_PERIOD_MS);
         break;
     }
-    
-    if (millis() > lastConnectedTime + (SLEEP_TIMEOUT)*1000) {
-      Serial.println("Enter sleep mode");
+    if (((millis() > (SLEEP_TIMEOUT)*1000) && (lastConnectedTime == 0)) && (!wasConnected)) {
+      DBG_PORT.println("Enter sleep mode");
+      LUA_PORT.println(">Sleep");
+      vTaskDelay(100 / portTICK_PERIOD_MS);
       LED_OFF;
       esp_deep_sleep_start();
     }
@@ -169,73 +168,71 @@ static  BLEUUID    charUUID(BLEUUID((uint16_t)0x2A37));
 static BLERemoteCharacteristic* pRemoteCharacteristic;
 static BLEAdvertisedDevice* myDevice;
 
+
 static void notifyCallback(BLERemoteCharacteristic* pBLERemoteCharacteristic,
                            uint8_t* pData,
                            size_t length,
                            bool isNotify) {
-  if (pData[0] & 0x02) {
-    lastGoodMeasurementTime = millis();
-  }
-  //portENTER_CRITICAL(&mux);
-  if ((millis() - lastGoodMeasurementTime) > CONTACT_LOST_TIMEOUT_MS) {
-    heartRate = 0;
-  } else {
-    heartRate = pData[1];
-  }
-  //portEXIT_CRITICAL(&mux);
-  Serial.printf("Notification %s: ", pBLERemoteCharacteristic->getUUID().toString().c_str());
+  heartRate = pData[1];
+  DBG_PORT.printf("Notification %s: ", pBLERemoteCharacteristic->getUUID().toString().c_str());
   for (uint8_t i = 0; i < length; i++) {
-    Serial.printf("%3d ", pData[i]);
+    DBG_PORT.printf("%3d ", pData[i]);
   }
-  Serial.println();
+  DBG_PORT.println();
 }
+
 
 class MyClientCallback : public BLEClientCallbacks {
     void onConnect(BLEClient* pclient) {
-      Serial.println("'onConnect' callback");
+      DBG_PORT.println("'onConnect' callback");
     }
     void onDisconnect(BLEClient* pclient) {
-      Serial.println("'onDisconnect' callback");
+      DBG_PORT.println("'onDisconnect' callback");
+      LUA_PORT.println(">Disconnected");
+      vTaskDelay(100 / portTICK_PERIOD_MS);
       state = ST_IDLE;
+      ESP.restart();
     }
 };
 
+
 bool connectToServer() {
-  Serial.print("Forming a connection to ");
-  Serial.println(myDevice->getAddress().toString().c_str());
+  DBG_PORT.print("Forming a connection to ");
+  DBG_PORT.println(myDevice->getAddress().toString().c_str());
 
   BLEClient* pClient = BLEDevice::createClient();
-  Serial.println("Created client");
+  DBG_PORT.println("Created client");
 
   pClient->setClientCallbacks(new MyClientCallback());
   pClient->connect(myDevice);
-  Serial.println("Connected to server");
+  DBG_PORT.println("Connected to server");
 
   BLERemoteService* pRemoteService = pClient->getService(serviceUUID);
   if (pRemoteService == nullptr) {
-    Serial.println("Failed to find service");
-    Serial.println(serviceUUID.toString().c_str());
+    DBG_PORT.println("Failed to find service");
+    DBG_PORT.println(serviceUUID.toString().c_str());
     pClient->disconnect();
     return false;
   }
-  Serial.println("Service found");
+  DBG_PORT.println("Service found");
 
   pRemoteCharacteristic = pRemoteService->getCharacteristic(charUUID);
   if (pRemoteCharacteristic == nullptr) {
-    Serial.println("Failed to find characteristic");
+    DBG_PORT.println("Failed to find characteristic");
     pClient->disconnect();
     return false;
   }
-  Serial.println("Characteristic found");
+  DBG_PORT.println("Characteristic found");
 
   if (pRemoteCharacteristic->canRead()) {
-    Serial.print("The characteristic value: ");
-    Serial.println(pRemoteCharacteristic->readValue());
+    DBG_PORT.print("The characteristic value: ");
+    DBG_PORT.println(pRemoteCharacteristic->readValue());
   }
 
   if (pRemoteCharacteristic->canNotify())
     pRemoteCharacteristic->registerForNotify(notifyCallback);
 
+  foundSavedDevice = 0;
   state = ST_CONNECTED;
   return true;
 }
@@ -243,23 +240,20 @@ bool connectToServer() {
 
 class MyAdvertisedDeviceCallbacks: public BLEAdvertisedDeviceCallbacks {
     void onResult(BLEAdvertisedDevice advertisedDevice) {
-      Serial.print("BLE Advertised Device found: ");
-      Serial.println(advertisedDevice.toString().c_str());
+      DBG_PORT.print("BLE Advertised Device found: ");
+      DBG_PORT.println(advertisedDevice.toString().c_str());
 
-      if (advertisedDevice.haveServiceUUID() && advertisedDevice.isAdvertisingService(serviceUUID)) {
-        
-        Serial.print("Heart rate monitor available: ");
-        Serial.println(advertisedDevice.getAddress().toString());
-
+      if (advertisedDevice.haveServiceUUID() && advertisedDevice.isAdvertisingService(serviceUUID)) {    
+        DBG_PORT.print("Heart rate monitor available: ");
+        DBG_PORT.println(advertisedDevice.getAddress().toString());
 #if USE_FIXED_MAX_ADDRESS
         if (advertisedDevice.getAddress().toString() != FIXED_MAX_ADDRESS)) {
           return;
         }
 #endif
-        
         memcpy(advertisedAddress, advertisedDevice.getAddress().getNative(), 6);
-        
         if (memcmp(advertisedDevice.getAddress().getNative(), savedAddress, 6) == 0) { 
+          LUA_PORT.println(">Available");
           foundSavedDevice = true;
           myDevice = new BLEAdvertisedDevice(advertisedDevice);
           BLEDevice::getScan()->stop();
@@ -271,10 +265,10 @@ class MyAdvertisedDeviceCallbacks: public BLEAdvertisedDeviceCallbacks {
 
 
 void BLE_setup(void) {
-  Serial.begin(115200);
+  DBG_PORT.begin(115200);
   vTaskDelay(1000 / portTICK_PERIOD_MS);
   EEPROM_Load();
-  Serial.println("Starting Arduino BLE Client application...");
+  DBG_PORT.println("Starting Arduino BLE Client application...");
   BLEDevice::init("");
   BLEScan* pBLEScan = BLEDevice::getScan();
   pBLEScan->setAdvertisedDeviceCallbacks(new MyAdvertisedDeviceCallbacks());
@@ -284,25 +278,20 @@ void BLE_setup(void) {
   pBLEScan->start(0, false);
 }
 
-
 void BLE_loop(void) {
   while (1) {
     if (foundSavedDevice) {
       if (connectToServer()) {
-        Serial.println("Connected to the BLE Server");
+        DBG_PORT.println("Connected to the BLE Server");
+        LUA_PORT.println(">Connected");
         wasConnected = true;
       } else {
-        Serial.println("Failed to connect to the server");
-        state = ST_IDLE;
+        DBG_PORT.println("Failed to connect to the server");
+        state = ST_ERROR;
       }
       foundSavedDevice = 0;
     }
-    if (state == ST_IDLE) {
-      if (wasConnected) { // reconnect
-        BLEDevice::getScan()->start(0);
-      }
-    }
-    vTaskDelay(1000 / portTICK_PERIOD_MS);
+    vTaskDelay(500 / portTICK_PERIOD_MS);
   }
 }
 
@@ -329,7 +318,6 @@ void KEY_task(void * p) {
 
 
 void setup() {
-  portMUX_INITIALIZE(&mux);
   xTaskCreate( &BLE_task, "Bluetooth", 100000, NULL, 1, &bleTaskHandle );
   xTaskCreate( &OUT_task, "Pulses",    10000,  NULL, 2, &outTaskHandle );
   xTaskCreate( &LED_task, "Blink",     10000,  NULL, 3, &ledTaskHandle );

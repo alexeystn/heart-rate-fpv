@@ -1,24 +1,31 @@
+---- Adjustable parameters: -----
+local armSwitch = 'sd'  -- sa, sd, sc, etc.
+local consoleScreenEnabled = true  -- true/false
+---------------------------------
+
 local heartRate = 0
 local nextHRUpdateTime = 0
 local nextStatsUpdateTime = 0
 local currentTime = 0
 
 local ST_NO_ESP32 = -1
-local ST_IDLE = 1
-local ST_AVAILABLE = 2
-local ST_CONNECTED = 3
--- 0 is reserved
+local ST_IDLE = 0
+local ST_AVAILABLE = 1
+local ST_CONNECTED = 2
+local ST_ERROR = 3
 
 local status = ST_NO_ESP32
 local lastSerialRxTime = 0
-
-local armSwitch = 'sd'
 
 local arms = {}
 local stats = {}
 local statsPointer = 1
 local statsSize = 128 - 17 - 2
 local maxHeartRate = 0
+
+local log = {}
+local logPointer = 1
+local logSize = 9
 
 local function putToStats(bpm)
   stats[statsPointer] = bpm
@@ -27,6 +34,15 @@ local function putToStats(bpm)
     statsPointer = statsPointer + 1
   else
     statsPointer = 1
+  end
+end
+
+local function putToLog(str)
+  ts = getDateTime()
+  log[logPointer] = string.format("%02d:%02d:%02d %s", ts['hour'], ts['min'], ts['sec'], str)
+  logPointer = logPointer + 1
+  if logPointer > logSize then
+    logPointer = 1
   end
 end
 
@@ -56,12 +72,59 @@ local function putToAvgBuffer(bpm)
   avgCount = 0
 end
 
+local function parseMessage(str)
+  local s
+  if string.sub(str, 3, 3) == ":" then
+    s = string.sub(str, 2, 2)
+    if s == "D" then
+      status = ST_IDLE
+      heartRate = 0
+    elseif s == "A" then
+      status = ST_AVAILABLE
+      heartRate = 0
+    elseif s == "C" then
+      status = ST_CONNECTED
+      heartRate = tonumber(string.sub(str, 4, -1))
+      if not heartRate then
+        heartRate = 0
+      end
+    end
+  end
+end
+
+local rxLine = ""
+local ch = 0
+
+local function processRxData(str)
+  local ret = false
+  for i = 1,string.len(str) do
+    ch = string.sub(str, i, i)
+    rxLine = rxLine .. ch
+    if ch == '\n' then
+      if string.sub(rxLine, 1, 1) == ">"  then
+        putToLog(rxLine)
+        parseMessage(rxLine)
+        ret = true
+      end
+      rxLine = ""
+    end
+    if string.len(rxLine) > 50 then
+      rxLine = ""
+    end
+  end
+  return ret
+end
+
+
 local function init_func()
   for i = 1,statsSize do
     stats[i] = 0
     arms[i] = false
   end
-  setSerialBaudrate(115200)
+  for i = 1,logSize do
+    log[i] = ''
+  end
+  setSerialBaudrate(9600)
 end
 
 local function bpmToY(bpm)
@@ -77,12 +140,12 @@ local function cntToPnt(i)
   end
 end
 
-local showGraph = true
+local displayMode = 1
 local blinkCounter = 0
 
 local function drawDisplay()
   lcd.clear()
-  if showGraph then -- Single number
+  if displayMode == 1 then -- Single number
     lcd.drawFilledRectangle(0, 0, LCD_W, 10)
     
     if status == ST_NO_ESP32 then 
@@ -109,7 +172,7 @@ local function drawDisplay()
       blinkCounter = 0
     end
     lcd.drawText(47, 57, "Max "..tostring(maxHeartRate), SMALLSIZE)
-  else -- Graph
+  elseif displayMode == 2 then -- Graph
     for bpm = 50,150,10 do
       lcd.drawLine(17, bpmToY(bpm), 17+statsSize, bpmToY(bpm), DOTTED, FORCE)
     end
@@ -136,47 +199,66 @@ local function drawDisplay()
         lcd.drawLine(x, y-1, x, y+1, SOLID, FORCE)
       end
     end
+  else  -- Console
+    lcd.drawLine(LCD_W-1, 0, LCD_W-1, LCD_H-1, SOLID, FORCE)
+    lcd.drawLine(0, 0, 0, LCD_H-1, SOLID, FORCE)
+    local pos = 0
+    for i = logPointer, logSize do
+      lcd.drawText(2, pos*7, log[i], SMLSIZE)
+      pos = pos + 1
+    end
+    for i = 1, logPointer-1 do
+      lcd.drawText(2, pos*7, log[i], SMLSIZE)
+      pos = pos + 1
+    end
   end
 end
 
-local function run_func(event)   
-  if (event == EVT_ROT_RIGHT) or (event == EVT_ROT_LEFT) or 
-   (event == EVT_PLUS_BREAK) or (event == EVT_MINUS_BREAK) then
-    showGraph = not showGraph
+local function run_func(event)
+  
+  local displayCount = 2
+  if consoleScreenEnabled then
+    displayCount = 3
   end
+  
+  if (event == EVT_ROT_RIGHT) or (event == EVT_PLUS_BREAK) then
+    displayMode = displayMode + 1
+  end
+  if (event == EVT_ROT_LEFT) or (event == EVT_MINUS_BREAK) then
+    displayMode = displayMode - 1
+  end
+  
+  if displayMode < 1 then 
+    displayMode = displayCount
+  end
+  if displayMode > displayCount then
+    displayMode = 1
+  end
+  
   if (event == EVT_ENTER_BREAK) then 
     maxHeartRate = 0
+    if displayMode == 3 then
+      serialWrite('R')
+    end
   end
   drawDisplay()
   return 0
 end
 
 local function bg_func()
-  --local heartRate = 0
   currentTime = getTime()
   data = serialRead()
   if data then
-    if string.len(data) == 1 then
-      lastSerialRxTime = getTime()
-      value = string.byte(data, 1)
-      --model.setGlobalVariable(0, 0, value-100)
-      if value < 30 then
-        status = value
-        heartRate = 0
-      else
-        status = ST_CONNECTED
-        heartRate = value
-      end
+    value = processRxData(data)
+    if value then
       lastSerialRxTime = getTime()
     end
   end
-  
   if (getTime() - lastSerialRxTime) > 200 then
-    status = -1
+    status = ST_NO_ESP32
     heartRate = 0
   end
   model.setGlobalVariable(0, 0, heartRate-100)
-
   putToAvgBuffer(heartRate)
   return 0
 end
