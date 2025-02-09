@@ -1,5 +1,5 @@
 ---- Adjustable parameters: -----
-local armSwitch = 'sd'
+local armSwitch = 'sd'  -- sa, sd, sc, etc.
 local consoleScreenEnabled = true  -- true/false
 ---------------------------------
 
@@ -199,7 +199,7 @@ local function drawDisplay()
         lcd.drawLine(x, y-1, x, y+1, SOLID, FORCE)
       end
     end
-  else
+  else  -- Console
     lcd.drawLine(LCD_W-1, 0, LCD_W-1, LCD_H-1, SOLID, FORCE)
     lcd.drawLine(0, 0, 0, LCD_H-1, SOLID, FORCE)
     local pos = 0
@@ -214,13 +214,27 @@ local function drawDisplay()
   end
 end
 
-local function run_func(event)   
-  if ((event == EVT_ROT_RIGHT) or (event == EVT_PLUS_BREAK)) and (displayMode < 3) then
+local function run_func(event)
+  
+  local displayCount = 2
+  if consoleScreenEnabled then
+    displayCount = 3
+  end
+  
+  if (event == EVT_ROT_RIGHT) or (event == EVT_PLUS_BREAK) then
     displayMode = displayMode + 1
   end
-  if ((event == EVT_ROT_LEFT) or (event == EVT_MINUS_BREAK)) and (displayMode > 1) then
+  if (event == EVT_ROT_LEFT) or (event == EVT_MINUS_BREAK) then
     displayMode = displayMode - 1
   end
+  
+  if displayMode < 1 then 
+    displayMode = displayCount
+  end
+  if displayMode > displayCount then
+    displayMode = 1
+  end
+  
   if (event == EVT_ENTER_BREAK) then 
     maxHeartRate = 0
     if displayMode == 3 then
