@@ -254,9 +254,9 @@ class MyAdvertisedDeviceCallbacks: public BLEAdvertisedDeviceCallbacks {
         memcpy(advertisedAddress, advertisedDevice.getAddress().getNative(), 6);
         if (memcmp(advertisedDevice.getAddress().getNative(), savedAddress, 6) == 0) { 
           LUA_PORT.println(">Available");
-          foundSavedDevice = true;
           myDevice = new BLEAdvertisedDevice(advertisedDevice);
           BLEDevice::getScan()->stop();
+          foundSavedDevice = true;
         }
         state = ST_AVAILABLE;
       }
@@ -286,6 +286,7 @@ void BLE_loop(void) {
         LUA_PORT.println(">Connected");
         wasConnected = true;
       } else {
+        LUA_PORT.println(">Error");
         DBG_PORT.println("Failed to connect to the server");
         state = ST_ERROR;
       }
