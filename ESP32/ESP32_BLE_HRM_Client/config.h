@@ -1,5 +1,6 @@
 // ESP32-C3-Zero:        USE_RGB_LEDS 1,  LED_PIN  10
 // ESP32-C3-SuperMini:   USE_RGB_LEDS 0,  LED_PIN  8
+// ESP32-DevKit-V1:      USE_RGB_LEDS 0,  LED_PIN  2
 #define  USE_RGB_LEDS   0
 #define  LED_PIN        8
 
