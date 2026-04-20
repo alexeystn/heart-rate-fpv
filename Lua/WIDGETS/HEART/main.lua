@@ -1,5 +1,7 @@
 local heartRate = 0
+local maxHeartRate = 0
 local currentTime = 0
+local lastSerialRxTime = 0
 
 local ST_NO_ESP32 = -1
 local ST_IDLE = 0
@@ -8,10 +10,8 @@ local ST_CONNECTED = 2
 local ST_ERROR = 3
 
 local status = ST_NO_ESP32
-local lastSerialRxTime = 0
 
-local maxHeartRate = 0
-
+local center = 0
 local heartBitmap
 
 local function parseMessage(str)
@@ -71,29 +71,29 @@ local function drawDisplay()
   lcd.clear()
 
   if status == ST_NO_ESP32 then 
-    lcd.drawText(10, 1, "ESP32 not connected")
+    lcd.drawText(center, 1, "ESP32 not connected", CENTER)
   elseif status == ST_IDLE then
-    lcd.drawText(19, 1, "Sensor not found")
+    lcd.drawText(center, 1, "Sensor not found", CENTER)
   elseif status == ST_AVAILABLE then
-    lcd.drawText(22, 1, "Sensor available")
+    lcd.drawText(center, 1, "Sensor available", CENTER)
   else
-    lcd.drawText(34, 1, "Heart rate")
+    lcd.drawText(center, 1, "Heart rate", CENTER)
   end
     
   if heartRate > 0 then
-    lcd.drawText(75, 20, tostring(heartRate), DBLSIZE)
+    lcd.drawText(center+16, 20, tostring(heartRate), DBLSIZE + CENTER)
     blinkCounter = blinkCounter + 1
   else
-    lcd.drawText(75, 20, "--", DBLSIZE)
+    lcd.drawText(center+16, 20, "- -", DBLSIZE + CENTER)
     blinkCounter = 0
   end
   if blinkCounter <= 15 then
-    lcd.drawBitmap(heartBitmap, 42, 26)
+    lcd.drawBitmap(heartBitmap, center-42, 26)
   end
   if blinkCounter >= 20 then 
     blinkCounter = 0
   end
-  lcd.drawText(65, 60, "Max "..tostring(maxHeartRate), SMALLSIZE)
+  lcd.drawText(center, 60, "Max "..tostring(maxHeartRate), CENTER)
 
 end
 
@@ -124,6 +124,7 @@ local options = {
 
 local function create(zone, options) -- only once
   init_func()
+  center = zone.w // 2
 end
 
 local function update(widget, options) -- if options are changed
@@ -134,7 +135,6 @@ local function background(widget)  -- periodically, when not visible
 end
 
 local function refresh(widget, event, touchState)  -- periodically, when visible
-  print("Event", event, touchState)
   if event == EVT_TOUCH_FIRST then
     maxHeartRate = 0
   end
