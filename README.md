@@ -84,8 +84,11 @@ EdgeTX ≥2.10 is required.
 <img src="Images/edgetx_mixes.png"/>
 </p>
 
-4. Copy [`heart.lua`](/Lua/) and [`heart.bmp`](/Lua/) to `SCRIPTS/TELEMETRY` directory on SD card.<br>
-5. Enable `heart` script on `Display` page.
+4. Copy [`heart.lua`](/Lua/SCRIPTS/TELEMETRY/) and [`heart.bmp`](/Lua/SCRIPTS/TELEMETRY/) to `SCRIPTS/TELEMETRY` directory on SD card.<br>
+_For TX16:_ Create `WIDGETS/HEART` directory on SD card. Copy [`main.lua`](/Lua/WIDGETS/HEART/) and [`heart.png`](/Lua/WIDGETS/HEART/) to this directory.<br>
+
+5. Enable `heart` script on `Display` page. <br>
+_For TX16:_ Add `Heart Rate` widget to your screen.
 
 <p align="center">
 <img src="Images/edgetx_telemetry.png"/>
@@ -121,9 +124,6 @@ For example: 5 for CH9, 6 for CH10, 7 for CH11, etc.
 Done! 
 <br>
 <br>
-
-### Future plans
-* Lua scripts for TX16 color screen 480x272.
 
 Feel free to contact me in Telegram: [@AlexeyStn](https://t.me/AlexeyStn)
 
