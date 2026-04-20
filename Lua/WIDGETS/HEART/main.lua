@@ -112,6 +112,9 @@ local function bg_func()
     heartRate = 0
   end
   model.setGlobalVariable(0, 0, heartRate-100)
+  if heartRate > maxHeartRate then
+    maxHeartRate = heartRate
+  end
 end
 
 name = "Heart Rate"
